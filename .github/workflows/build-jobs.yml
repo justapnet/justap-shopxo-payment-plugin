@@ -15,20 +15,31 @@ jobs:
           tag_t="${{ github.ref }}"
           tag="${tag_t##*/}"
           sed -i 's/__version_tag__/${tag}/g' JustapBase.php
-          zip justap-shopxo-plugin-v${tag}.zip *
 
-      - name: Prepare ossutil
-        run: |
-          wget -q https://gosspublic.alicdn.com/ossutil/1.7.9/ossutil64 -O ossutil
-          chmod +x ossutil
-
-      - name: Upload plugin file to oss
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         env:
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_KEY_ID }}
-          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_KEY_SECRET }}
-          OSS_BUCKET: ${{ secrets.OSS_KEY_BUCKET_NAME }}
-        run: |
-          ./ossutil config -e $OSS_ENDPOINT -i $OSS_ACCESS_KEY_ID -k $OSS_ACCESS_KEY_SECRET
-          zip_file=`find . -name *.zip`
-          ./ossutil cp -rf ${zip_file} oss://$OSS_BUCKET/shopxo-plugin/
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: ""
+          draft: false
+          prerelease: false
+
+#      - name: Prepare ossutil
+#        run: |
+#          wget -q https://gosspublic.alicdn.com/ossutil/1.7.9/ossutil64 -O ossutil
+#          chmod +x ossutil
+#
+#      - name: Upload plugin file to oss
+#        env:
+#          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+#          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_KEY_ID }}
+#          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_KEY_SECRET }}
+#          OSS_BUCKET: ${{ secrets.OSS_KEY_BUCKET_NAME }}
+#        run: |
+#          ./ossutil config -e $OSS_ENDPOINT -i $OSS_ACCESS_KEY_ID -k $OSS_ACCESS_KEY_SECRET
+#          zip_file=`find . -name *.zip`
+#          ./ossutil cp -rf ${zip_file} oss://$OSS_BUCKET/shopxo-plugin/
