@@ -10,12 +10,6 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
-      - name: Zip file
-        run: |
-          tag_t="${{ github.ref }}"
-          tag="${tag_t##*/}"
-          sed -i 's/__version_tag__/${tag}/g' JustapBase.php
-
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -28,18 +22,22 @@ jobs:
           draft: false
           prerelease: false
 
-#      - name: Prepare ossutil
+#      - name: Zip file
 #        run: |
-#          wget -q https://gosspublic.alicdn.com/ossutil/1.7.9/ossutil64 -O ossutil
-#          chmod +x ossutil
+#          tag_t="${{ github.ref }}"
+#          tag="${tag_t##*/}"
+#          cd extend/payment/
+#          zip justap-shopxo-plugin-v${tag}.zip *
+#          mv justap-shopxo-plugin-v${tag}.zip ../../
 #
-#      - name: Upload plugin file to oss
-#        env:
-#          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-#          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_KEY_ID }}
-#          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_KEY_SECRET }}
-#          OSS_BUCKET: ${{ secrets.OSS_KEY_BUCKET_NAME }}
-#        run: |
-#          ./ossutil config -e $OSS_ENDPOINT -i $OSS_ACCESS_KEY_ID -k $OSS_ACCESS_KEY_SECRET
-#          zip_file=`find . -name *.zip`
-#          ./ossutil cp -rf ${zip_file} oss://$OSS_BUCKET/shopxo-plugin/
+#      - name: Upload file to oss
+#        id: upload_to_oss
+#        uses: tvrcgo/upload-to-oss@master
+#        with:
+#          key-id: ${{ secrets.OSS_KEY_ID }}
+#          key-secret: ${{ secrets.OSS_KEY_SECRET }}
+#          region: ${{ secrets.OSS_KEY_REGION }}
+#          bucket: ${{ secrets.OSS_KEY_BUCKET_NAME }}
+#          assets: |
+#            *.zip:/
+#
