@@ -721,7 +721,7 @@ if (!class_exists('JustapBaseJustapAlipay')) {
             // 基础信息
             $base = [
                 'name'          => '开源聚合支付',  // 插件名称
-                'version'       => 'v1.2.0',  // 插件版本
+                'version'       => 'v1.3.0',  // 插件版本
                 'apply_version' => '不限',  // 适用系统版本描述
                 'apply_terminal' => ['pc', 'h5', 'ios', 'android', 'alipay', 'weixin'], // 适用终端 默认全部 ['pc', 'h5', 'ios', 'android', 'alipay', 'weixin', 'baidu', 'toutiao']
                 'desc'          => '<h1>开源聚合(TM)支付</h1>
