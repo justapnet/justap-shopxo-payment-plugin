@@ -635,6 +635,7 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
             ];
 
             $resp = [];
+
             switch ($channel) {
                 case self::CHANNEL_ALIPAY_APP:
                     $creatChargeParams['extra'] = [
@@ -1191,6 +1192,8 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
             return DataReturn('支付缺少配置', -1);
         }
 
+        dd(APPLICATION_CLIENT_TYPE, IsWeixinEnv(), $params['user']);
+
         // 微信中打开
         if(APPLICATION_CLIENT_TYPE == 'pc' && IsWeixinEnv() && (empty($params['user']) || empty($params['user']['weixin_web_openid'])))
         {
@@ -1205,6 +1208,7 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
             $openid = isset($params['user']['weixin_web_openid']) ? $params['user']['weixin_web_openid'] : '';
         }
 
+        dd(APPLICATION_CLIENT_TYPE, IsWeixinEnv());
         switch(APPLICATION_CLIENT_TYPE) {
             // web
             case 'pc' :

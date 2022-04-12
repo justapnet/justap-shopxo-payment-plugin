@@ -632,6 +632,7 @@ if (!class_exists('JustapBaseJustapAlipay')) {
             ];
 
             $resp = [];
+
             switch ($channel) {
                 case self::CHANNEL_ALIPAY_APP:
                     $creatChargeParams['extra'] = [
@@ -653,7 +654,10 @@ if (!class_exists('JustapBaseJustapAlipay')) {
                     break;
                 case self::CHANNEL_ALIPAY_WAP:
                     $creatChargeParams['extra'] = [
-                        'alipay_wap' => new \stdClass()
+                        'alipay_wap' => [
+                            'return_url' => $params['call_back_url'],
+                            'quit_url' => $params['call_back_url'],
+                        ]
                     ];
                     $resp = $this->client->createCharge($creatChargeParams);
                     break;
@@ -1197,9 +1201,16 @@ class JustapAlipay extends JustapBaseJustapAlipay {
 
                 $resp = $this->doPay($channel, $params);
                 if ($resp['data']['failure_code'] == 0) {
-                    if (isset($resp['data']['extra']) && isset($resp['data']['extra']['alipay_page']) && isset($resp['data']['extra']['alipay_page']['pay_url'])) {
-                        $payUrl = $resp['data']['extra']['alipay_page']['pay_url'];
-                        return DataReturn('success', 0, $payUrl);
+                    if (isset($resp['data']['extra'])) {
+                        if (isset($resp['data']['extra']['alipay_page']) && isset($resp['data']['extra']['alipay_page']['pay_url'])) {
+                            $payUrl = $resp['data']['extra']['alipay_page']['pay_url'];
+                        } else if (isset($resp['data']['extra']['alipay_wap']) && isset($resp['data']['extra']['alipay_wap']['pay_url'])) {
+                            $payUrl = $resp['data']['extra']['alipay_wap']['pay_url'];
+                        }
+
+                        if ($payUrl) {
+                            return DataReturn('success', 0, $payUrl);
+                        }
                     }
                 }
 
