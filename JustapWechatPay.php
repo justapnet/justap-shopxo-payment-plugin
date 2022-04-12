@@ -1206,7 +1206,6 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
             $openid = isset($params['user']['weixin_web_openid']) ? $params['user']['weixin_web_openid'] : '';
         }
 
-        dd(APPLICATION_CLIENT_TYPE, IsWeixinEnv());
         switch(APPLICATION_CLIENT_TYPE) {
             // web
             case 'pc' :
