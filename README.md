@@ -21,7 +21,8 @@
 
 ## 演示
 
-建设中
+http://shopxo-demo.justap.cn/
 
 ## 其它
 - 开源聚合支付官网 https://www.justap.cn
+- 开源聚合支付开发者中心 https://www.justap.cn/docs
