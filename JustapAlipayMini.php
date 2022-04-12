@@ -2,66 +2,21 @@
 
 namespace payment;
 
-class JustapAlipayMini extends JustapBase {
-    public function Config(): array
-    {
-        $config = parent::Config();
-        $config['base']['name'] .= '-支付宝小程序';
-        $config['base']['apply_terminal'] = ['alipay'];
-
-        return $config;
-    }
-
-    public function Pay($params = []): array
-    {
-        // 参数
-        if(empty($params))
-        {
-            return DataReturn('参数不能为空', -1);
-        }
-
-        // 配置信息
-        if(empty($this->config))
-        {
-            return DataReturn('支付缺少配置', -1);
-        }
-
-        if (!IsAlipayEnv()) {
-            return DataReturn('没有相关支付模块['.APPLICATION_CLIENT_TYPE.']', -1);
-        }
-
-        $channel = self::CHANNEL_ALIPAY_LITE;
-        $resp = $this->doPay($channel, $params);
-        if ($resp['data']['failure_code'] == 0) {
-            if (isset($resp['data']['extra'])
-                && isset($resp['data']['extra']['alipay_lite'])
-                && isset($resp['data']['extra']['alipay_lite']['trade_no'])
-            ) {
-                $tradeNo = $resp['data']['extra']['alipay_lite']['trade_no'];
-                return DataReturn('处理成功', 0, $tradeNo);
-            }
-        }
-
-        // 直接返回支付信息
-        return DataReturn('下单失败', -1000);
-    }
-}
-
 
 // -----------------------------------------------------------------
 // 以下代码所有开源聚合支付插件相同
 // -----------------------------------------------------------------
 
 // -----------------------------
-// class CaBundle
+// class CaBundleJustapAlipayMini
 // -----------------------------
-if  (!class_exists('CaBundle')) {
+if  (!class_exists('CaBundleJustapAlipayMini')) {
 
     /**
      * @author Chris Smith <chris@cs278.org>
      * @author Jordi Boggiano <j.boggiano@seld.be>
      */
-    class CaBundle
+    class CaBundleJustapAlipayMini
     {
         /** @var string|null */
         private static $caPath;
@@ -111,18 +66,18 @@ if  (!class_exists('CaBundle')) {
             if (self::$caPath !== null) {
                 return self::$caPath;
             }
-            $caBundlePaths = array();
+            $CaBundleJustapAlipayMiniPaths = array();
 
             // If SSL_CERT_FILE env variable points to a valid certificate/bundle, use that.
             // This mimics how OpenSSL uses the SSL_CERT_FILE env variable.
-            $caBundlePaths[] = self::getEnvVariable('SSL_CERT_FILE');
+            $CaBundleJustapAlipayMiniPaths[] = self::getEnvVariable('SSL_CERT_FILE');
 
             // If SSL_CERT_DIR env variable points to a valid certificate/bundle, use that.
             // This mimics how OpenSSL uses the SSL_CERT_FILE env variable.
-            $caBundlePaths[] = self::getEnvVariable('SSL_CERT_DIR');
+            $CaBundleJustapAlipayMiniPaths[] = self::getEnvVariable('SSL_CERT_DIR');
 
-            $caBundlePaths[] = ini_get('openssl.cafile');
-            $caBundlePaths[] = ini_get('openssl.capath');
+            $CaBundleJustapAlipayMiniPaths[] = ini_get('openssl.cafile');
+            $CaBundleJustapAlipayMiniPaths[] = ini_get('openssl.capath');
 
             $otherLocations = array(
                 '/etc/pki/tls/certs/ca-bundle.crt', // Fedora, RHEL, CentOS (ca-certificates package)
@@ -143,19 +98,19 @@ if  (!class_exists('CaBundle')) {
                 $otherLocations[] = dirname($location);
             }
 
-            $caBundlePaths = array_merge($caBundlePaths, $otherLocations);
+            $CaBundleJustapAlipayMiniPaths = array_merge($CaBundleJustapAlipayMiniPaths, $otherLocations);
 
-            foreach ($caBundlePaths as $caBundle) {
-                if ($caBundle && self::caFileUsable($caBundle, $logger)) {
-                    return self::$caPath = $caBundle;
+            foreach ($CaBundleJustapAlipayMiniPaths as $CaBundleJustapAlipayMini) {
+                if ($CaBundleJustapAlipayMini && self::caFileUsable($CaBundleJustapAlipayMini, $logger)) {
+                    return self::$caPath = $CaBundleJustapAlipayMini;
                 }
 
-                if ($caBundle && self::caDirUsable($caBundle, $logger)) {
-                    return self::$caPath = $caBundle;
+                if ($CaBundleJustapAlipayMini && self::caDirUsable($CaBundleJustapAlipayMini, $logger)) {
+                    return self::$caPath = $CaBundleJustapAlipayMini;
                 }
             }
 
-            return self::$caPath = static::getBundledCaBundlePath(); // Bundled CA file, last resort
+            return self::$caPath = static::getBundledCaBundleJustapAlipayMiniPath(); // Bundled CA file, last resort
         }
 
         /**
@@ -165,31 +120,31 @@ if  (!class_exists('CaBundle')) {
          *
          * @return string path to a CA bundle file
          */
-        public static function getBundledCaBundlePath()
+        public static function getBundledCaBundleJustapAlipayMiniPath()
         {
-            $caBundleFile = __DIR__.'/../res/cacert.pem';
+            $CaBundleJustapAlipayMiniFile = __DIR__.'/../res/cacert.pem';
 
             // cURL does not understand 'phar://' paths
             // see https://github.com/composer/ca-bundle/issues/10
-            if (0 === strpos($caBundleFile, 'phar://')) {
-                $tempCaBundleFile = tempnam(sys_get_temp_dir(), 'openssl-ca-bundle-');
-                if (false === $tempCaBundleFile) {
+            if (0 === strpos($CaBundleJustapAlipayMiniFile, 'phar://')) {
+                $tempCaBundleJustapAlipayMiniFile = tempnam(sys_get_temp_dir(), 'openssl-ca-bundle-');
+                if (false === $tempCaBundleJustapAlipayMiniFile) {
                     throw new \RuntimeException('Could not create a temporary file to store the bundled CA file');
                 }
 
                 file_put_contents(
-                    $tempCaBundleFile,
-                    file_get_contents($caBundleFile)
+                    $tempCaBundleJustapAlipayMiniFile,
+                    file_get_contents($CaBundleJustapAlipayMiniFile)
                 );
 
-                register_shutdown_function(function() use ($tempCaBundleFile) {
-                    @unlink($tempCaBundleFile);
+                register_shutdown_function(function() use ($tempCaBundleJustapAlipayMiniFile) {
+                    @unlink($tempCaBundleJustapAlipayMiniFile);
                 });
 
-                $caBundleFile = $tempCaBundleFile;
+                $CaBundleJustapAlipayMiniFile = $tempCaBundleJustapAlipayMiniFile;
             }
 
-            return $caBundleFile;
+            return $CaBundleJustapAlipayMiniFile;
         }
 
         /**
@@ -458,10 +413,10 @@ EOT;
 }
 
 // -----------------------------
-// class CurlHttpClient
+// class CurlHttpClientJustapAlipayMini
 // -----------------------------
-if  (!class_exists('CurlHttpClient')) {
-    class CurlHttpClient {
+if  (!class_exists('CurlHttpClientJustapAlipayMini')) {
+    class CurlHttpClientJustapAlipayMini {
         public function send($uri, $headerOptions, $method, $body, array $options): array
         {
             $ch = curl_init();
@@ -540,7 +495,7 @@ if  (!class_exists('CurlHttpClient')) {
             }
 
 //        if (empty($options['ssl_cafile'])) {
-//            $options['ssl_cafile'] = CaBundle::getBundledCaBundlePath();
+//            $options['ssl_cafile'] = CaBundleJustapAlipayMini::getBundledCaBundleJustapAlipayMiniPath();
 //        }
 
             if (!empty($options['ssl_verify_host'])) {
@@ -606,10 +561,10 @@ if  (!class_exists('CurlHttpClient')) {
 }
 
 // ------------------------------
-// class JustapBase
+// class JustapBaseJustapAlipayMini
 // ------------------------------
-if (!class_exists('JustapBase')) {
-    class JustapBase {
+if (!class_exists('JustapBaseJustapAlipayMini')) {
+    class JustapBaseJustapAlipayMini {
         //请求渠道
         // const CHANNEL_ALIPAY_SCAN = 'AlipayScan';//: 支付宝条码支付
         // const CHANNEL_ALIPAY_FACE = 'AlipayFace';//: 支付宝刷脸支付
@@ -635,14 +590,14 @@ if (!class_exists('JustapBase')) {
         }
 
         function initSdk() {
-            $server = JustapConfiguration::getDefaultConfiguration();
+            $server = JustapConfigurationJustapAlipayMini::getDefaultConfiguration();
             $server->setApiKey($this->config['justap_secret_key']);
             $server->setHost('https://trade.justap.cn');
             $server->setPrivateKey($this->config['justap_merchant_private_key']);
             $server->setUserAgent('justap-php-sdk/shopxo');
-            $sdk = new JustapSdk();
+            $sdk = new JustapSdkJustapAlipayMini();
             $sdk->setConfig($server);
-            $sdk->setClient(new CurlHttpClient());
+            $sdk->setClient(new CurlHttpClientJustapAlipayMini());
             $this->client = $sdk;
         }
 
@@ -859,7 +814,7 @@ if (!class_exists('JustapBase')) {
                     return DataReturn('缺少配置', -1);
                 }
 
-                $decrypted = decrypt_RSA($this->config['justap_public_key'], $data['data']);
+                $decrypted = DecryptRsaJustapAlipayMini($this->config['justap_public_key'], $data['data']);
                 if (!$decrypted) {
                     return DataReturn('解密失败', -1);
                 }
@@ -918,8 +873,8 @@ if (!class_exists('JustapBase')) {
     }
 }
 
-if (!function_exists('encrypt_RSA')) {
-    function encrypt_RSA($plainData, $privatePEMKey)
+if (!function_exists('EncryptRsaJustapAlipayMini')) {
+    function EncryptRsaJustapAlipayMini($plainData, $privatePEMKey)
     {
         $encrypted = '';
         $plainData = str_split($plainData, 200);
@@ -938,8 +893,8 @@ if (!function_exists('encrypt_RSA')) {
     }
 }
 
-if (!function_exists('decrypt_RSA')) {
-    function decrypt_RSA($publicPEMKey, $data)
+if (!function_exists('DecryptRsaJustapAlipayMini')) {
+    function DecryptRsaJustapAlipayMini($publicPEMKey, $data)
     {
         $decrypted = '';
         $data = str_split(base64_decode($data), 256);
@@ -957,9 +912,9 @@ if (!function_exists('decrypt_RSA')) {
     }
 }
 
-if  (!class_exists('JustapConfiguration')) {
+if  (!class_exists('JustapConfigurationJustapAlipayMini')) {
 
-    class JustapConfiguration {
+    class JustapConfigurationJustapAlipayMini {
         private static $defaultConfiguration;
         private $privateKey;
         protected $apiKeys = '';
@@ -1118,16 +1073,16 @@ if  (!class_exists('JustapConfiguration')) {
             return $this->tempFolderPath;
         }
 
-        public static function getDefaultConfiguration(): JustapConfiguration
+        public static function getDefaultConfiguration(): JustapConfigurationJustapAlipayMini
         {
             if (self::$defaultConfiguration === null) {
-                self::$defaultConfiguration = new JustapConfiguration();
+                self::$defaultConfiguration = new JustapConfigurationJustapAlipayMini();
             }
 
             return self::$defaultConfiguration;
         }
 
-        public static function setDefaultConfiguration(JustapConfiguration $config)
+        public static function setDefaultConfiguration(JustapConfigurationJustapAlipayMini $config)
         {
             self::$defaultConfiguration = $config;
         }
@@ -1150,16 +1105,16 @@ if  (!class_exists('JustapConfiguration')) {
     }
 }
 
-if (!class_exists('JustapSdk')) {
-    class JustapSdk {
+if (!class_exists('JustapSdkJustapAlipayMini')) {
+    class JustapSdkJustapAlipayMini {
         private $conf;
         private $httpClient;
 
-        public function setConfig(JustapConfiguration $conf) {
+        public function setConfig(JustapConfigurationJustapAlipayMini $conf) {
             $this->conf = $conf;
         }
 
-        public function setClient(CurlHttpClient $client) {
+        public function setClient(CurlHttpClientJustapAlipayMini $client) {
             $this->httpClient = $client;
         }
 
@@ -1209,5 +1164,54 @@ if (!class_exists('JustapSdk')) {
 
             return $randomString;
         }
+    }
+}
+// --------------------------------------------------------------------------------
+// end
+// --------------------------------------------------------------------------------
+
+
+class JustapAlipayMini extends JustapBaseJustapAlipayMini {
+    public function Config(): array
+    {
+        $config = parent::Config();
+        $config['base']['name'] .= '-支付宝小程序';
+        $config['base']['apply_terminal'] = ['alipay'];
+
+        return $config;
+    }
+
+    public function Pay($params = []): array
+    {
+        // 参数
+        if(empty($params))
+        {
+            return DataReturn('参数不能为空', -1);
+        }
+
+        // 配置信息
+        if(empty($this->config))
+        {
+            return DataReturn('支付缺少配置', -1);
+        }
+
+        if (!IsAlipayEnv()) {
+            return DataReturn('没有相关支付模块['.APPLICATION_CLIENT_TYPE.']', -1);
+        }
+
+        $channel = self::CHANNEL_ALIPAY_LITE;
+        $resp = $this->doPay($channel, $params);
+        if ($resp['data']['failure_code'] == 0) {
+            if (isset($resp['data']['extra'])
+                && isset($resp['data']['extra']['alipay_lite'])
+                && isset($resp['data']['extra']['alipay_lite']['trade_no'])
+            ) {
+                $tradeNo = $resp['data']['extra']['alipay_lite']['trade_no'];
+                return DataReturn('处理成功', 0, $tradeNo);
+            }
+        }
+
+        // 直接返回支付信息
+        return DataReturn('下单失败', -1000);
     }
 }

@@ -2,210 +2,21 @@
 
 namespace payment;
 
-class JustapWechatPay extends JustapBase {
-    public function Config() {
-        $config = parent::Config();
-        $config['base']['name'] .= '-微信支付';
-        $config['base']['apply_terminal'] = ['pc', 'h5', 'ios', 'android', 'weixin'];
-
-        return $config;
-    }
-
-    public function Pay($params = []) {
-        // 参数
-        if(empty($params))
-        {
-            return DataReturn('参数不能为空', -1);
-        }
-
-        // 配置信息
-        if(empty($this->config))
-        {
-            return DataReturn('支付缺少配置', -1);
-        }
-
-        // 微信中打开
-        if(APPLICATION_CLIENT_TYPE == 'pc' && IsWeixinEnv() && (empty($params['user']) || empty($params['user']['weixin_web_openid'])))
-        {
-            exit(header('location:'.PluginsHomeUrl('weixinwebauthorization', 'pay', 'index', input())));
-        }
-
-        $channel = '';
-        $openId = '';
-        if (APPLICATION_CLIENT_TYPE == 'weixin') {
-            $openid = isset($params['user']['weixin_openid']) ? $params['user']['weixin_openid'] : '';
-        } else {
-            $openid = isset($params['user']['weixin_web_openid']) ? $params['user']['weixin_web_openid'] : '';
-        }
-
-        switch(APPLICATION_CLIENT_TYPE) {
-            // web
-            case 'pc' :
-            case 'h5' :
-                if(IsMobile())
-                {
-                    // real h5
-                    if (IsWeixinEnv()) {
-                        $channel = self::CHANNEL_WECHATPAY_JSAPI;
-                    } else {
-                        $channel = self::CHANNEL_WECHATPAY_NATIVE;
-                    }
-                } else {
-                    $channel = self::CHANNEL_WECHATPAY_NATIVE;
-                }
-
-                break;
-
-            case 'weixin':
-                $channel = self::CHANNEL_WECHATPAY_JSAPI;
-                break;
-            // 指的是app支付
-            case 'app' :
-            case 'ios' :
-            case 'android' :
-                $channel = self::CHANNEL_WECHATPAY_APP;
-                break;
-
-            default :
-                return DataReturn('支付类型不匹配', -1);
-        }
-
-        $params['openid'] = $openId;
-        $resp = $this->doPay($channel, $params);
-        if ($resp['data']['failure_code'] !== "0") {
-            return DataReturn($resp['data']['failure_msg'], -1);
-        }
-
-        $redirect_url = empty($params['redirect_url']) ? __MY_URL__ : $params['redirect_url'];
-        switch ($channel) {
-            case self::CHANNEL_WECHATPAY_NATIVE:
-                $codeUrl = $resp['data']['extra']['wechatpay_native']['qr_code'];
-                $codeUrl = urlencode(base64_encode($codeUrl));
-                if(APPLICATION == 'app')
-                {
-                    $data = [
-                        'qrcode_url'    => MyUrl('index/qrcode/index', ['content'=>$codeUrl]),
-                        'order_no'      => $params['order_no'],
-                        'name'          => '微信支付',
-                        'msg'           => '打开微信APP扫一扫进行支付',
-                        'check_url'     => $params['check_url'],
-                    ];
-                } else {
-                    $pay_params = [
-                        'url'       => $codeUrl,
-                        'order_no'  => $params['order_no'],
-                        'name'      => urlencode('微信支付'),
-                        'msg'       => urlencode('打开微信APP扫一扫进行支付'),
-                        'check_url' => urlencode(base64_encode($params['check_url'])),
-                    ];
-                    $data = MyUrl('index/pay/qrcode', $pay_params);
-                }
-
-                return DataReturn('success', 0, $data);
-                break;
-
-            case self::CHANNEL_WECHATPAY_JSAPI:
-                $pay_data = $resp['data']['extra']['wechatpay_jsapi']['jsapi_config'];
-
-                // 微信中
-                if(APPLICATION == 'web' && IsWeixinEnv())
-                {
-                    $html = $this->PayHtml($pay_data, $redirect_url);
-                    die($html);
-                } else {
-                    return DataReturn('success', 0, $pay_data);
-                }
-                break;
-            case self::CHANNEL_WECHATPAY_H5:
-                $redirect_url = urlencode($redirect_url);
-                $redirect_url =  $resp['data']['extra']['wechatpay_h5']['pay_url']. '&redirect_url='.$redirect_url;
-                return DataReturn('success', 0, $redirect_url);
-                break;
-            case self::CHANNEL_WECHATPAY_APP:
-                $pay_data = $resp['data']['extra']['wechatpay_app']['app_config'];
-                return  DataReturn('success', 0, $pay_data);
-                break;
-
-            default:
-                break;
-        }
-
-        return [];
-    }
-
-    /**
-     * 支付代码
-     * @author   Devil
-     * @blog     http://gong.gg/
-     * @version  1.0.0
-     * @datetime 2019-05-25T00:07:52+0800
-     * @param    [array]                   $pay_data     [支付信息]
-     * @param    [string]                  $redirect_url [支付结束后跳转url]
-     */
-    private function PayHtml($pay_data, $redirect_url)
-    {
-        // 支付代码
-        return '<html>
-            <head>
-                <meta http-equiv="content-type" content="text/html;charset=utf-8"/>
-                <title>微信安全支付</title>
-                <meta name="apple-mobile-web-app-capable" content="yes">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1, maximum-scale=1">
-                <body style="text-align:center;padding-top:10%;">
-                    <p style="color:#999;">正在支付中...</p>
-                    <p style="color:#f00;margin-top:20px;">请不要关闭页面！</p>
-                </body>
-                <script type="text/javascript">
-                    function onBridgeReady()
-                    {
-                       WeixinJSBridge.invoke(
-                            \'getBrandWCPayRequest\', {
-                                "appId":"'.$pay_data['appId'].'",
-                                "timeStamp":"'.$pay_data['timeStamp'].'",
-                                "nonceStr":"'.$pay_data['nonceStr'].'",
-                                "package":"'.$pay_data['package'].'",     
-                                "signType":"'.$pay_data['signType'].'",
-                                "paySign":"'.$pay_data['paySign'].'"
-                            },
-                            function(res) {
-                                window.location.href = "'.$redirect_url.'";
-                            }
-                        ); 
-                    }
-                    if(typeof WeixinJSBridge == "undefined")
-                    {
-                       if( document.addEventListener )
-                       {
-                           document.addEventListener("WeixinJSBridgeReady", onBridgeReady, false);
-                       } else if (document.attachEvent)
-                       {
-                           document.attachEvent("WeixinJSBridgeReady", onBridgeReady); 
-                           document.attachEvent("onWeixinJSBridgeReady", onBridgeReady);
-                       }
-                    } else {
-                       onBridgeReady();
-                    }
-                </script>
-            </head>
-        </html>';
-    }
-}
-
 
 // -----------------------------------------------------------------
 // 以下代码所有开源聚合支付插件相同
 // -----------------------------------------------------------------
 
 // -----------------------------
-// class CaBundle
+// class CaBundleJustapWechatPay
 // -----------------------------
-if  (!class_exists('CaBundle')) {
+if  (!class_exists('CaBundleJustapWechatPay')) {
 
     /**
      * @author Chris Smith <chris@cs278.org>
      * @author Jordi Boggiano <j.boggiano@seld.be>
      */
-    class CaBundle
+    class CaBundleJustapWechatPay
     {
         /** @var string|null */
         private static $caPath;
@@ -255,18 +66,18 @@ if  (!class_exists('CaBundle')) {
             if (self::$caPath !== null) {
                 return self::$caPath;
             }
-            $caBundlePaths = array();
+            $CaBundleJustapWechatPayPaths = array();
 
             // If SSL_CERT_FILE env variable points to a valid certificate/bundle, use that.
             // This mimics how OpenSSL uses the SSL_CERT_FILE env variable.
-            $caBundlePaths[] = self::getEnvVariable('SSL_CERT_FILE');
+            $CaBundleJustapWechatPayPaths[] = self::getEnvVariable('SSL_CERT_FILE');
 
             // If SSL_CERT_DIR env variable points to a valid certificate/bundle, use that.
             // This mimics how OpenSSL uses the SSL_CERT_FILE env variable.
-            $caBundlePaths[] = self::getEnvVariable('SSL_CERT_DIR');
+            $CaBundleJustapWechatPayPaths[] = self::getEnvVariable('SSL_CERT_DIR');
 
-            $caBundlePaths[] = ini_get('openssl.cafile');
-            $caBundlePaths[] = ini_get('openssl.capath');
+            $CaBundleJustapWechatPayPaths[] = ini_get('openssl.cafile');
+            $CaBundleJustapWechatPayPaths[] = ini_get('openssl.capath');
 
             $otherLocations = array(
                 '/etc/pki/tls/certs/ca-bundle.crt', // Fedora, RHEL, CentOS (ca-certificates package)
@@ -287,19 +98,19 @@ if  (!class_exists('CaBundle')) {
                 $otherLocations[] = dirname($location);
             }
 
-            $caBundlePaths = array_merge($caBundlePaths, $otherLocations);
+            $CaBundleJustapWechatPayPaths = array_merge($CaBundleJustapWechatPayPaths, $otherLocations);
 
-            foreach ($caBundlePaths as $caBundle) {
-                if ($caBundle && self::caFileUsable($caBundle, $logger)) {
-                    return self::$caPath = $caBundle;
+            foreach ($CaBundleJustapWechatPayPaths as $CaBundleJustapWechatPay) {
+                if ($CaBundleJustapWechatPay && self::caFileUsable($CaBundleJustapWechatPay, $logger)) {
+                    return self::$caPath = $CaBundleJustapWechatPay;
                 }
 
-                if ($caBundle && self::caDirUsable($caBundle, $logger)) {
-                    return self::$caPath = $caBundle;
+                if ($CaBundleJustapWechatPay && self::caDirUsable($CaBundleJustapWechatPay, $logger)) {
+                    return self::$caPath = $CaBundleJustapWechatPay;
                 }
             }
 
-            return self::$caPath = static::getBundledCaBundlePath(); // Bundled CA file, last resort
+            return self::$caPath = static::getBundledCaBundleJustapWechatPayPath(); // Bundled CA file, last resort
         }
 
         /**
@@ -309,31 +120,31 @@ if  (!class_exists('CaBundle')) {
          *
          * @return string path to a CA bundle file
          */
-        public static function getBundledCaBundlePath()
+        public static function getBundledCaBundleJustapWechatPayPath()
         {
-            $caBundleFile = __DIR__.'/../res/cacert.pem';
+            $CaBundleJustapWechatPayFile = __DIR__.'/../res/cacert.pem';
 
             // cURL does not understand 'phar://' paths
             // see https://github.com/composer/ca-bundle/issues/10
-            if (0 === strpos($caBundleFile, 'phar://')) {
-                $tempCaBundleFile = tempnam(sys_get_temp_dir(), 'openssl-ca-bundle-');
-                if (false === $tempCaBundleFile) {
+            if (0 === strpos($CaBundleJustapWechatPayFile, 'phar://')) {
+                $tempCaBundleJustapWechatPayFile = tempnam(sys_get_temp_dir(), 'openssl-ca-bundle-');
+                if (false === $tempCaBundleJustapWechatPayFile) {
                     throw new \RuntimeException('Could not create a temporary file to store the bundled CA file');
                 }
 
                 file_put_contents(
-                    $tempCaBundleFile,
-                    file_get_contents($caBundleFile)
+                    $tempCaBundleJustapWechatPayFile,
+                    file_get_contents($CaBundleJustapWechatPayFile)
                 );
 
-                register_shutdown_function(function() use ($tempCaBundleFile) {
-                    @unlink($tempCaBundleFile);
+                register_shutdown_function(function() use ($tempCaBundleJustapWechatPayFile) {
+                    @unlink($tempCaBundleJustapWechatPayFile);
                 });
 
-                $caBundleFile = $tempCaBundleFile;
+                $CaBundleJustapWechatPayFile = $tempCaBundleJustapWechatPayFile;
             }
 
-            return $caBundleFile;
+            return $CaBundleJustapWechatPayFile;
         }
 
         /**
@@ -602,10 +413,10 @@ EOT;
 }
 
 // -----------------------------
-// class CurlHttpClient
+// class CurlHttpClientJustapWechatPay
 // -----------------------------
-if  (!class_exists('CurlHttpClient')) {
-    class CurlHttpClient {
+if  (!class_exists('CurlHttpClientJustapWechatPay')) {
+    class CurlHttpClientJustapWechatPay {
         public function send($uri, $headerOptions, $method, $body, array $options): array
         {
             $ch = curl_init();
@@ -684,7 +495,7 @@ if  (!class_exists('CurlHttpClient')) {
             }
 
 //        if (empty($options['ssl_cafile'])) {
-//            $options['ssl_cafile'] = CaBundle::getBundledCaBundlePath();
+//            $options['ssl_cafile'] = CaBundleJustapWechatPay::getBundledCaBundleJustapWechatPayPath();
 //        }
 
             if (!empty($options['ssl_verify_host'])) {
@@ -750,10 +561,10 @@ if  (!class_exists('CurlHttpClient')) {
 }
 
 // ------------------------------
-// class JustapBase
+// class JustapBaseJustapWechatPay
 // ------------------------------
-if (!class_exists('JustapBase')) {
-    class JustapBase {
+if (!class_exists('JustapBaseJustapWechatPay')) {
+    class JustapBaseJustapWechatPay {
         //请求渠道
         // const CHANNEL_ALIPAY_SCAN = 'AlipayScan';//: 支付宝条码支付
         // const CHANNEL_ALIPAY_FACE = 'AlipayFace';//: 支付宝刷脸支付
@@ -779,14 +590,14 @@ if (!class_exists('JustapBase')) {
         }
 
         function initSdk() {
-            $server = JustapConfiguration::getDefaultConfiguration();
+            $server = JustapConfigurationJustapWechatPay::getDefaultConfiguration();
             $server->setApiKey($this->config['justap_secret_key']);
             $server->setHost('https://trade.justap.cn');
             $server->setPrivateKey($this->config['justap_merchant_private_key']);
             $server->setUserAgent('justap-php-sdk/shopxo');
-            $sdk = new JustapSdk();
+            $sdk = new JustapSdkJustapWechatPay();
             $sdk->setConfig($server);
-            $sdk->setClient(new CurlHttpClient());
+            $sdk->setClient(new CurlHttpClientJustapWechatPay());
             $this->client = $sdk;
         }
 
@@ -1003,7 +814,7 @@ if (!class_exists('JustapBase')) {
                     return DataReturn('缺少配置', -1);
                 }
 
-                $decrypted = decrypt_RSA($this->config['justap_public_key'], $data['data']);
+                $decrypted = DecryptRsaJustapWechatPay($this->config['justap_public_key'], $data['data']);
                 if (!$decrypted) {
                     return DataReturn('解密失败', -1);
                 }
@@ -1062,8 +873,8 @@ if (!class_exists('JustapBase')) {
     }
 }
 
-if (!function_exists('encrypt_RSA')) {
-    function encrypt_RSA($plainData, $privatePEMKey)
+if (!function_exists('EncryptRsaJustapWechatPay')) {
+    function EncryptRsaJustapWechatPay($plainData, $privatePEMKey)
     {
         $encrypted = '';
         $plainData = str_split($plainData, 200);
@@ -1082,8 +893,8 @@ if (!function_exists('encrypt_RSA')) {
     }
 }
 
-if (!function_exists('decrypt_RSA')) {
-    function decrypt_RSA($publicPEMKey, $data)
+if (!function_exists('DecryptRsaJustapWechatPay')) {
+    function DecryptRsaJustapWechatPay($publicPEMKey, $data)
     {
         $decrypted = '';
         $data = str_split(base64_decode($data), 256);
@@ -1101,9 +912,9 @@ if (!function_exists('decrypt_RSA')) {
     }
 }
 
-if  (!class_exists('JustapConfiguration')) {
+if  (!class_exists('JustapConfigurationJustapWechatPay')) {
 
-    class JustapConfiguration {
+    class JustapConfigurationJustapWechatPay {
         private static $defaultConfiguration;
         private $privateKey;
         protected $apiKeys = '';
@@ -1262,16 +1073,16 @@ if  (!class_exists('JustapConfiguration')) {
             return $this->tempFolderPath;
         }
 
-        public static function getDefaultConfiguration(): JustapConfiguration
+        public static function getDefaultConfiguration(): JustapConfigurationJustapWechatPay
         {
             if (self::$defaultConfiguration === null) {
-                self::$defaultConfiguration = new JustapConfiguration();
+                self::$defaultConfiguration = new JustapConfigurationJustapWechatPay();
             }
 
             return self::$defaultConfiguration;
         }
 
-        public static function setDefaultConfiguration(JustapConfiguration $config)
+        public static function setDefaultConfiguration(JustapConfigurationJustapWechatPay $config)
         {
             self::$defaultConfiguration = $config;
         }
@@ -1294,16 +1105,16 @@ if  (!class_exists('JustapConfiguration')) {
     }
 }
 
-if (!class_exists('JustapSdk')) {
-    class JustapSdk {
+if (!class_exists('JustapSdkJustapWechatPay')) {
+    class JustapSdkJustapWechatPay {
         private $conf;
         private $httpClient;
 
-        public function setConfig(JustapConfiguration $conf) {
+        public function setConfig(JustapConfigurationJustapWechatPay $conf) {
             $this->conf = $conf;
         }
 
-        public function setClient(CurlHttpClient $client) {
+        public function setClient(CurlHttpClientJustapWechatPay $client) {
             $this->httpClient = $client;
         }
 
@@ -1353,5 +1164,199 @@ if (!class_exists('JustapSdk')) {
 
             return $randomString;
         }
+    }
+}
+// --------------------------------------------------------------------------------
+// end
+// --------------------------------------------------------------------------------
+
+
+
+class JustapWechatPay extends JustapBaseJustapWechatPay {
+    public function Config() {
+        $config = parent::Config();
+        $config['base']['name'] .= '-微信支付';
+        $config['base']['apply_terminal'] = ['pc', 'h5', 'ios', 'android', 'weixin'];
+
+        return $config;
+    }
+
+    public function Pay($params = []) {
+        // 参数
+        if(empty($params))
+        {
+            return DataReturn('参数不能为空', -1);
+        }
+
+        // 配置信息
+        if(empty($this->config))
+        {
+            return DataReturn('支付缺少配置', -1);
+        }
+
+        // 微信中打开
+        if(APPLICATION_CLIENT_TYPE == 'pc' && IsWeixinEnv() && (empty($params['user']) || empty($params['user']['weixin_web_openid'])))
+        {
+            exit(header('location:'.PluginsHomeUrl('weixinwebauthorization', 'pay', 'index', input())));
+        }
+
+        $channel = '';
+        $openId = '';
+        if (APPLICATION_CLIENT_TYPE == 'weixin') {
+            $openid = isset($params['user']['weixin_openid']) ? $params['user']['weixin_openid'] : '';
+        } else {
+            $openid = isset($params['user']['weixin_web_openid']) ? $params['user']['weixin_web_openid'] : '';
+        }
+
+        switch(APPLICATION_CLIENT_TYPE) {
+            // web
+            case 'pc' :
+            case 'h5' :
+                if(IsMobile())
+                {
+                    // real h5
+                    if (IsWeixinEnv()) {
+                        $channel = self::CHANNEL_WECHATPAY_JSAPI;
+                    } else {
+                        $channel = self::CHANNEL_WECHATPAY_NATIVE;
+                    }
+                } else {
+                    $channel = self::CHANNEL_WECHATPAY_NATIVE;
+                }
+
+                break;
+
+            case 'weixin':
+                $channel = self::CHANNEL_WECHATPAY_JSAPI;
+                break;
+            // 指的是app支付
+            case 'app' :
+            case 'ios' :
+            case 'android' :
+                $channel = self::CHANNEL_WECHATPAY_APP;
+                break;
+
+            default :
+                return DataReturn('支付类型不匹配', -1);
+        }
+
+        $params['openid'] = $openId;
+        $resp = $this->doPay($channel, $params);
+        if ($resp['data']['failure_code'] !== "0") {
+            return DataReturn($resp['data']['failure_msg'], -1);
+        }
+
+        $redirect_url = empty($params['redirect_url']) ? __MY_URL__ : $params['redirect_url'];
+        switch ($channel) {
+            case self::CHANNEL_WECHATPAY_NATIVE:
+                $codeUrl = $resp['data']['extra']['wechatpay_native']['qr_code'];
+                $codeUrl = urlencode(base64_encode($codeUrl));
+                if(APPLICATION == 'app')
+                {
+                    $data = [
+                        'qrcode_url'    => MyUrl('index/qrcode/index', ['content'=>$codeUrl]),
+                        'order_no'      => $params['order_no'],
+                        'name'          => '微信支付',
+                        'msg'           => '打开微信APP扫一扫进行支付',
+                        'check_url'     => $params['check_url'],
+                    ];
+                } else {
+                    $pay_params = [
+                        'url'       => $codeUrl,
+                        'order_no'  => $params['order_no'],
+                        'name'      => urlencode('微信支付'),
+                        'msg'       => urlencode('打开微信APP扫一扫进行支付'),
+                        'check_url' => urlencode(base64_encode($params['check_url'])),
+                    ];
+                    $data = MyUrl('index/pay/qrcode', $pay_params);
+                }
+
+                return DataReturn('success', 0, $data);
+                break;
+
+            case self::CHANNEL_WECHATPAY_JSAPI:
+                $pay_data = $resp['data']['extra']['wechatpay_jsapi']['jsapi_config'];
+
+                // 微信中
+                if(APPLICATION == 'web' && IsWeixinEnv())
+                {
+                    $html = $this->PayHtml($pay_data, $redirect_url);
+                    die($html);
+                } else {
+                    return DataReturn('success', 0, $pay_data);
+                }
+                break;
+            case self::CHANNEL_WECHATPAY_H5:
+                $redirect_url = urlencode($redirect_url);
+                $redirect_url =  $resp['data']['extra']['wechatpay_h5']['pay_url']. '&redirect_url='.$redirect_url;
+                return DataReturn('success', 0, $redirect_url);
+                break;
+            case self::CHANNEL_WECHATPAY_APP:
+                $pay_data = $resp['data']['extra']['wechatpay_app']['app_config'];
+                return  DataReturn('success', 0, $pay_data);
+                break;
+
+            default:
+                break;
+        }
+
+        return [];
+    }
+
+    /**
+     * 支付代码
+     * @author   Devil
+     * @blog     http://gong.gg/
+     * @version  1.0.0
+     * @datetime 2019-05-25T00:07:52+0800
+     * @param    [array]                   $pay_data     [支付信息]
+     * @param    [string]                  $redirect_url [支付结束后跳转url]
+     */
+    private function PayHtml($pay_data, $redirect_url)
+    {
+        // 支付代码
+        return '<html>
+            <head>
+                <meta http-equiv="content-type" content="text/html;charset=utf-8"/>
+                <title>微信安全支付</title>
+                <meta name="apple-mobile-web-app-capable" content="yes">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1, maximum-scale=1">
+                <body style="text-align:center;padding-top:10%;">
+                    <p style="color:#999;">正在支付中...</p>
+                    <p style="color:#f00;margin-top:20px;">请不要关闭页面！</p>
+                </body>
+                <script type="text/javascript">
+                    function onBridgeReady()
+                    {
+                       WeixinJSBridge.invoke(
+                            \'getBrandWCPayRequest\', {
+                                "appId":"'.$pay_data['appId'].'",
+                                "timeStamp":"'.$pay_data['timeStamp'].'",
+                                "nonceStr":"'.$pay_data['nonceStr'].'",
+                                "package":"'.$pay_data['package'].'",     
+                                "signType":"'.$pay_data['signType'].'",
+                                "paySign":"'.$pay_data['paySign'].'"
+                            },
+                            function(res) {
+                                window.location.href = "'.$redirect_url.'";
+                            }
+                        ); 
+                    }
+                    if(typeof WeixinJSBridge == "undefined")
+                    {
+                       if( document.addEventListener )
+                       {
+                           document.addEventListener("WeixinJSBridgeReady", onBridgeReady, false);
+                       } else if (document.attachEvent)
+                       {
+                           document.attachEvent("WeixinJSBridgeReady", onBridgeReady); 
+                           document.attachEvent("onWeixinJSBridgeReady", onBridgeReady);
+                       }
+                    } else {
+                       onBridgeReady();
+                    }
+                </script>
+            </head>
+        </html>';
     }
 }
