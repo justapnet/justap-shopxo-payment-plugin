@@ -1192,8 +1192,6 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
             return DataReturn('支付缺少配置', -1);
         }
 
-        dd(APPLICATION_CLIENT_TYPE, IsWeixinEnv(), $params['user']);
-
         // 微信中打开
         if(APPLICATION_CLIENT_TYPE == 'pc' && IsWeixinEnv() && (empty($params['user']) || empty($params['user']['weixin_web_openid'])))
         {
