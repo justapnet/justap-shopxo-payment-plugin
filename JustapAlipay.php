@@ -609,9 +609,6 @@ if (!class_exists('JustapBaseJustapAlipay')) {
                 return DataReturn('支付缺少配置', -1);
             }
 
-            $params['notify_url'] = str_replace('127.0.0.1', 'wuzhuo-local.stg.cmzz.net', $params['notify_url']);
-            $params['call_back_url'] = str_replace('127.0.0.1', 'wuzhuo-local.stg.cmzz.net', $params['call_back_url']);
-
             $creatChargeParams = [
                 'app_id'            => $this->config['justap_app_id'],
                 'merchant_trade_id' => $params['order_no'], //交易单号
