@@ -1212,7 +1212,7 @@ class JustapWechatPayScanQrcode extends JustapBaseJustapWechatPayScanQrcode {
             $data['subject']        = $subject;                     // 本系统发起支付的 - 商品名称
             $data['pay_price']      = $data['amount'];              // 本系统发起支付的 - 总价
 
-            return DataReturn('支付成功', $this->ReturnData($resp['data']));
+            return DataReturn('支付完成，请进入订单页面查看结果', $this->ReturnData($resp['data']));
         }
 
         return DataReturn('下单失败, '. $resp['data']['failure_msg'], -1);
