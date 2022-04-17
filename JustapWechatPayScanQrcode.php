@@ -6,16 +6,16 @@ namespace payment;
 // -----------------------------------------------------------------
 
 // -----------------------------
-// class CaBundleJustapAlipayScanQrcode
+// class CaBundleJustapWechatPayScanQrcode
 // -----------------------------
 use Symfony\Component\VarDumper\Cloner\Data;
 
-if  (!class_exists('CaBundleJustapAlipayScanQrcode')) {
+if  (!class_exists('CaBundleJustapWechatPayScanQrcode')) {
     /**
      * @author Chris Smith <chris@cs278.org>
      * @author Jordi Boggiano <j.boggiano@seld.be>
      */
-    class CaBundleJustapAlipayScanQrcode
+    class CaBundleJustapWechatPayScanQrcode
     {
         /** @var string|null */
         private static $caPath;
@@ -65,18 +65,18 @@ if  (!class_exists('CaBundleJustapAlipayScanQrcode')) {
             if (self::$caPath !== null) {
                 return self::$caPath;
             }
-            $CaBundleJustapAlipayScanQrcodePaths = array();
+            $CaBundleJustapWechatPayScanQrcodePaths = array();
 
             // If SSL_CERT_FILE env variable points to a valid certificate/bundle, use that.
             // This mimics how OpenSSL uses the SSL_CERT_FILE env variable.
-            $CaBundleJustapAlipayScanQrcodePaths[] = self::getEnvVariable('SSL_CERT_FILE');
+            $CaBundleJustapWechatPayScanQrcodePaths[] = self::getEnvVariable('SSL_CERT_FILE');
 
             // If SSL_CERT_DIR env variable points to a valid certificate/bundle, use that.
             // This mimics how OpenSSL uses the SSL_CERT_FILE env variable.
-            $CaBundleJustapAlipayScanQrcodePaths[] = self::getEnvVariable('SSL_CERT_DIR');
+            $CaBundleJustapWechatPayScanQrcodePaths[] = self::getEnvVariable('SSL_CERT_DIR');
 
-            $CaBundleJustapAlipayScanQrcodePaths[] = ini_get('openssl.cafile');
-            $CaBundleJustapAlipayScanQrcodePaths[] = ini_get('openssl.capath');
+            $CaBundleJustapWechatPayScanQrcodePaths[] = ini_get('openssl.cafile');
+            $CaBundleJustapWechatPayScanQrcodePaths[] = ini_get('openssl.capath');
 
             $otherLocations = array(
                 '/etc/pki/tls/certs/ca-bundle.crt', // Fedora, RHEL, CentOS (ca-certificates package)
@@ -97,19 +97,19 @@ if  (!class_exists('CaBundleJustapAlipayScanQrcode')) {
                 $otherLocations[] = dirname($location);
             }
 
-            $CaBundleJustapAlipayScanQrcodePaths = array_merge($CaBundleJustapAlipayScanQrcodePaths, $otherLocations);
+            $CaBundleJustapWechatPayScanQrcodePaths = array_merge($CaBundleJustapWechatPayScanQrcodePaths, $otherLocations);
 
-            foreach ($CaBundleJustapAlipayScanQrcodePaths as $CaBundleJustapAlipayScanQrcode) {
-                if ($CaBundleJustapAlipayScanQrcode && self::caFileUsable($CaBundleJustapAlipayScanQrcode, $logger)) {
-                    return self::$caPath = $CaBundleJustapAlipayScanQrcode;
+            foreach ($CaBundleJustapWechatPayScanQrcodePaths as $CaBundleJustapWechatPayScanQrcode) {
+                if ($CaBundleJustapWechatPayScanQrcode && self::caFileUsable($CaBundleJustapWechatPayScanQrcode, $logger)) {
+                    return self::$caPath = $CaBundleJustapWechatPayScanQrcode;
                 }
 
-                if ($CaBundleJustapAlipayScanQrcode && self::caDirUsable($CaBundleJustapAlipayScanQrcode, $logger)) {
-                    return self::$caPath = $CaBundleJustapAlipayScanQrcode;
+                if ($CaBundleJustapWechatPayScanQrcode && self::caDirUsable($CaBundleJustapWechatPayScanQrcode, $logger)) {
+                    return self::$caPath = $CaBundleJustapWechatPayScanQrcode;
                 }
             }
 
-            return self::$caPath = static::getBundledCaBundleJustapAlipayScanQrcodePath(); // Bundled CA file, last resort
+            return self::$caPath = static::getBundledCaBundleJustapWechatPayScanQrcodePath(); // Bundled CA file, last resort
         }
 
         /**
@@ -119,31 +119,31 @@ if  (!class_exists('CaBundleJustapAlipayScanQrcode')) {
          *
          * @return string path to a CA bundle file
          */
-        public static function getBundledCaBundleJustapAlipayScanQrcodePath()
+        public static function getBundledCaBundleJustapWechatPayScanQrcodePath()
         {
-            $CaBundleJustapAlipayScanQrcodeFile = __DIR__.'/../res/cacert.pem';
+            $CaBundleJustapWechatPayScanQrcodeFile = __DIR__.'/../res/cacert.pem';
 
             // cURL does not understand 'phar://' paths
             // see https://github.com/composer/ca-bundle/issues/10
-            if (0 === strpos($CaBundleJustapAlipayScanQrcodeFile, 'phar://')) {
-                $tempCaBundleJustapAlipayScanQrcodeFile = tempnam(sys_get_temp_dir(), 'openssl-ca-bundle-');
-                if (false === $tempCaBundleJustapAlipayScanQrcodeFile) {
+            if (0 === strpos($CaBundleJustapWechatPayScanQrcodeFile, 'phar://')) {
+                $tempCaBundleJustapWechatPayScanQrcodeFile = tempnam(sys_get_temp_dir(), 'openssl-ca-bundle-');
+                if (false === $tempCaBundleJustapWechatPayScanQrcodeFile) {
                     throw new \RuntimeException('Could not create a temporary file to store the bundled CA file');
                 }
 
                 file_put_contents(
-                    $tempCaBundleJustapAlipayScanQrcodeFile,
-                    file_get_contents($CaBundleJustapAlipayScanQrcodeFile)
+                    $tempCaBundleJustapWechatPayScanQrcodeFile,
+                    file_get_contents($CaBundleJustapWechatPayScanQrcodeFile)
                 );
 
-                register_shutdown_function(function() use ($tempCaBundleJustapAlipayScanQrcodeFile) {
-                    @unlink($tempCaBundleJustapAlipayScanQrcodeFile);
+                register_shutdown_function(function() use ($tempCaBundleJustapWechatPayScanQrcodeFile) {
+                    @unlink($tempCaBundleJustapWechatPayScanQrcodeFile);
                 });
 
-                $CaBundleJustapAlipayScanQrcodeFile = $tempCaBundleJustapAlipayScanQrcodeFile;
+                $CaBundleJustapWechatPayScanQrcodeFile = $tempCaBundleJustapWechatPayScanQrcodeFile;
             }
 
-            return $CaBundleJustapAlipayScanQrcodeFile;
+            return $CaBundleJustapWechatPayScanQrcodeFile;
         }
 
         /**
@@ -412,10 +412,10 @@ EOT;
 }
 
 // -----------------------------
-// class CurlHttpClientJustapAlipayScanQrcode
+// class CurlHttpClientJustapWechatPayScanQrcode
 // -----------------------------
-if  (!class_exists('CurlHttpClientJustapAlipayScanQrcode')) {
-    class CurlHttpClientJustapAlipayScanQrcode {
+if  (!class_exists('CurlHttpClientJustapWechatPayScanQrcode')) {
+    class CurlHttpClientJustapWechatPayScanQrcode {
         public function send($uri, $headerOptions, $method, $body, array $options): array
         {
             $ch = curl_init();
@@ -494,7 +494,7 @@ if  (!class_exists('CurlHttpClientJustapAlipayScanQrcode')) {
             }
 
 //        if (empty($options['ssl_cafile'])) {
-//            $options['ssl_cafile'] = CaBundleJustapAlipayScanQrcode::getBundledCaBundleJustapAlipayScanQrcodePath();
+//            $options['ssl_cafile'] = CaBundleJustapWechatPayScanQrcode::getBundledCaBundleJustapWechatPayScanQrcodePath();
 //        }
 
             if (!empty($options['ssl_verify_host'])) {
@@ -560,10 +560,10 @@ if  (!class_exists('CurlHttpClientJustapAlipayScanQrcode')) {
 }
 
 // ------------------------------
-// class JustapBaseJustapAlipayScanQrcode
+// class JustapBaseJustapWechatPayScanQrcode
 // ------------------------------
-if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
-    class JustapBaseJustapAlipayScanQrcode {
+if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
+    class JustapBaseJustapWechatPayScanQrcode {
         //请求渠道
         // const CHANNEL_ALIPAY_FACE = 'AlipayFace';//: 支付宝刷脸支付
         const CHANNEL_ALIPAY_SCAN = 'AlipayScan';//: 支付宝条码支付
@@ -577,8 +577,8 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
         const CHANNEL_WECHATPAY_NATIVE = 'WechatpayNative';//: 微信 Native 支付
         const CHANNEL_WECHATPAY_LITE = 'WechatpayLite';//: 微信小程序支付
         const CHANNEL_WECHATPAY_JSAPI = 'WechatpayJSAPI';//: 微信 JSAPI 支付
+        const CHANNEL_WECHATPAY_SCAN = 'WechatpayScan';//: 微信付款码支付
         // const CHANNEL_WECHATPAY_FACE = 'WechatpayFace';//: 刷脸支付
-        // const CHANNEL_WECHATPAY_SCAN = 'WechatpayScan';//: 微信付款码支付
 
         protected $config = [];
         protected $client;
@@ -589,14 +589,14 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
         }
 
         function initSdk() {
-            $server = JustapConfigurationJustapAlipayScanQrcode::getDefaultConfiguration();
+            $server = JustapConfigurationJustapWechatPayScanQrcode::getDefaultConfiguration();
             $server->setApiKey($this->config['justap_secret_key']);
             $server->setHost('https://trade.justap.cn');
             $server->setPrivateKey($this->config['justap_merchant_private_key']);
             $server->setUserAgent('justap-php-sdk/shopxo');
-            $sdk = new JustapSdkJustapAlipayScanQrcode();
+            $sdk = new JustapSdkJustapWechatPayScanQrcode();
             $sdk->setConfig($server);
-            $sdk->setClient(new CurlHttpClientJustapAlipayScanQrcode());
+            $sdk->setClient(new CurlHttpClientJustapWechatPayScanQrcode());
             $this->client = $sdk;
         }
 
@@ -663,13 +663,6 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
                     ];
                     $resp = $this->client->createCharge($creatChargeParams);
                     break;
-                case self::CHANNEL_ALIPAY_SCAN:
-                    $creatChargeParams['extra'] = [
-                        'alipay_scan' => [
-                            'auth_code' => $params['params']['payment_code']
-                        ]
-                    ];
-                    break;
                 case self::CHANNEL_ALIPAY_QR:
                     $creatChargeParams['extra'] = [
                         'alipay_qr' => new \stdClass()
@@ -709,6 +702,12 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
                         ]
                     ];
                     break;
+                case self::CHANNEL_WECHATPAY_SCAN;
+                    $creatChargeParams['extra'] = [
+                        'wechatpay_scan' => [
+                            'auth_code' => $params['params']['payment_code'],
+                        ]
+                    ];
                 default:
                     return DataReturn('渠道['.$channel.']暂未支付', -1);
             }
@@ -821,7 +820,7 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
                     return DataReturn('缺少配置', -1);
                 }
 
-                $decrypted = DecryptRsaJustapAlipayScanQrcode($this->config['justap_public_key'], $data['data']);
+                $decrypted = DecryptRsaJustapWechatPayScanQrcode($this->config['justap_public_key'], $data['data']);
                 if (!$decrypted) {
                     return DataReturn('解密失败', -1);
                 }
@@ -880,8 +879,8 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
     }
 }
 
-if (!function_exists('EncryptRsaJustapAlipayScanQrcode')) {
-    function EncryptRsaJustapAlipayScanQrcode($plainData, $privatePEMKey)
+if (!function_exists('EncryptRsaJustapWechatPayScanQrcode')) {
+    function EncryptRsaJustapWechatPayScanQrcode($plainData, $privatePEMKey)
     {
         $encrypted = '';
         $plainData = str_split($plainData, 200);
@@ -900,8 +899,8 @@ if (!function_exists('EncryptRsaJustapAlipayScanQrcode')) {
     }
 }
 
-if (!function_exists('DecryptRsaJustapAlipayScanQrcode')) {
-    function DecryptRsaJustapAlipayScanQrcode($publicPEMKey, $data)
+if (!function_exists('DecryptRsaJustapWechatPayScanQrcode')) {
+    function DecryptRsaJustapWechatPayScanQrcode($publicPEMKey, $data)
     {
         $decrypted = '';
         $data = str_split(base64_decode($data), 256);
@@ -919,9 +918,9 @@ if (!function_exists('DecryptRsaJustapAlipayScanQrcode')) {
     }
 }
 
-if  (!class_exists('JustapConfigurationJustapAlipayScanQrcode')) {
+if  (!class_exists('JustapConfigurationJustapWechatPayScanQrcode')) {
 
-    class JustapConfigurationJustapAlipayScanQrcode {
+    class JustapConfigurationJustapWechatPayScanQrcode {
         private static $defaultConfiguration;
         private $privateKey;
         protected $apiKeys = '';
@@ -1080,16 +1079,16 @@ if  (!class_exists('JustapConfigurationJustapAlipayScanQrcode')) {
             return $this->tempFolderPath;
         }
 
-        public static function getDefaultConfiguration(): JustapConfigurationJustapAlipayScanQrcode
+        public static function getDefaultConfiguration(): JustapConfigurationJustapWechatPayScanQrcode
         {
             if (self::$defaultConfiguration === null) {
-                self::$defaultConfiguration = new JustapConfigurationJustapAlipayScanQrcode();
+                self::$defaultConfiguration = new JustapConfigurationJustapWechatPayScanQrcode();
             }
 
             return self::$defaultConfiguration;
         }
 
-        public static function setDefaultConfiguration(JustapConfigurationJustapAlipayScanQrcode $config)
+        public static function setDefaultConfiguration(JustapConfigurationJustapWechatPayScanQrcode $config)
         {
             self::$defaultConfiguration = $config;
         }
@@ -1112,16 +1111,16 @@ if  (!class_exists('JustapConfigurationJustapAlipayScanQrcode')) {
     }
 }
 
-if (!class_exists('JustapSdkJustapAlipayScanQrcode')) {
-    class JustapSdkJustapAlipayScanQrcode {
+if (!class_exists('JustapSdkJustapWechatPayScanQrcode')) {
+    class JustapSdkJustapWechatPayScanQrcode {
         private $conf;
         private $httpClient;
 
-        public function setConfig(JustapConfigurationJustapAlipayScanQrcode $conf) {
+        public function setConfig(JustapConfigurationJustapWechatPayScanQrcode $conf) {
             $this->conf = $conf;
         }
 
-        public function setClient(CurlHttpClientJustapAlipayScanQrcode $client) {
+        public function setClient(CurlHttpClientJustapWechatPayScanQrcode $client) {
             $this->httpClient = $client;
         }
 
@@ -1177,11 +1176,11 @@ if (!class_exists('JustapSdkJustapAlipayScanQrcode')) {
 // end
 // --------------------------------------------------------------------------------
 
-class JustapAlipayScanQrcode extends JustapBaseJustapAlipayScanQrcode {
+class JustapWechatPayScanQrcode extends JustapBaseJustapWechatPayScanQrcode {
     public function Config(): array
     {
         $config = parent::Config();
-        $config['base']['name'] .= '-支付宝扫码';
+        $config['base']['name'] .= '-微信支付扫码';
         $config['base']['apply_terminal'] = ['pc'];
         return $config;
     }
@@ -1202,7 +1201,7 @@ class JustapAlipayScanQrcode extends JustapBaseJustapAlipayScanQrcode {
             return DataReturn('付款码为空', -1);
         }
 
-        $channel = self::CHANNEL_ALIPAY_SCAN;
+        $channel = self::CHANNEL_WECHATPAY_SCAN;
         $resp = $this->doPay($channel, $params);
         if ($resp['data']['failure_code'] == 0) {
             $data = $resp['data'];
