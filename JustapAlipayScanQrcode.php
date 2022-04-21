@@ -669,6 +669,7 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
                             'auth_code' => $params['params']['payment_code']
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_ALIPAY_QR:
                     $creatChargeParams['extra'] = [
@@ -708,6 +709,7 @@ if (!class_exists('JustapBaseJustapAlipayScanQrcode')) {
                             ]
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 default:
                     return DataReturn('渠道['.$channel.']暂未支付', -1);
@@ -1188,6 +1190,10 @@ class JustapAlipayScanQrcode extends JustapBaseJustapAlipayScanQrcode {
 
     public function Pay($params = []): array
     {
+        if ($_GET['payment_code']) {
+            $params['params']['payment_code'] = $_GET['payment_code'];
+        }
+
         if(empty($params)) {
             return DataReturn('参数不能为空', -1);
         }
