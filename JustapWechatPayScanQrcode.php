@@ -719,6 +719,10 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                     return DataReturn('渠道['.$channel.']暂未支付', -1);
             }
 
+            if (empty($resp) || !isset($resp['headers']) || count($resp['headers']) < 0) {
+                return DataReturn('支付平台下单失败', -1);
+            }
+
             if (strpos($resp['headers'][0], '200') < 0) {
                 return DataReturn('支付接口下单失败', -1);
             }
@@ -836,7 +840,6 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             }
 
             $notifyData = $data['data'];
-
             dump($notifyData);
             // TradeType_CHARGE_PAID 支付通知
             if ($notifyData['trade_type'] == 2) {
@@ -854,7 +857,99 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
         }
 
         public function Refund($params = []) {
+            // 参数
+            $p = [
+                [
+                    'checked_type'      => 'empty',
+                    'key_name'          => 'order_no',
+                    'error_msg'         => '订单号不能为空',
+                ],
+                [
+                    'checked_type'      => 'empty',
+                    'key_name'          => 'trade_no',
+                    'error_msg'         => '交易平台订单号不能为空',
+                ],
+                [
+                    'checked_type'      => 'empty',
+                    'key_name'          => 'refund_price',
+                    'error_msg'         => '退款金额不能为空',
+                ],
+            ];
+            $ret = ParamsChecked($params, $p);
+            if($ret !== true)
+            {
+                return DataReturn($ret, -1);
+            }
 
+            // 退款原因
+            $refund_reason = empty($params['refund_reason']) ? $params['order_no'].'订单退款'.$params['refund_price'].'元' : $params['refund_reason'];
+
+            $this->initSdk();
+            $createRefundParams = [
+                'charge_id' => $params['trade_no'],
+                'app_id' => $this->config['justap_app_id'],
+                'description' => $refund_reason,
+                'merchant_refund_id' => $params['order_no'],
+                'amount' => $params['refund_price']
+            ];
+
+            $resp = $this->client->createRefund($createRefundParams);
+
+            if (empty($resp) || !isset($resp['headers']) || count($resp['headers']) < 0) {
+                return DataReturn('支付平台下单失败', -1);
+            }
+
+            if (strpos($resp['headers'][0], '200') < 0) {
+                return DataReturn('支付接口下单失败', -1);
+            }
+
+            $body = json_decode($resp['body'], true);
+            if (isset($body['code']) && $body['code'] != 0) {
+                throw new \Exception($body['message']);
+            }
+
+            if (strtolower($body['data']['status']) == 'refunding') {
+                if ($body['data']['is_success'] == 0) {
+                    // 请求退款成功，
+                    // 需要查询退款结果 3 次
+                    $success = false;
+                    for ($i = 0; $i < 3; $i++) {
+                        $queryResp = $this->client->queryRefund([
+                            'charge_id' => $body['charge_id'],
+                            'refund_id' => $body['refund_id'],
+                        ]);
+
+                        if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
+                            return DataReturn('支付平台下单失败', -1);
+                        }
+
+                        if (strpos($queryResp['headers'][0], '200') < 0) {
+                            return DataReturn('支付接口下单失败', -1);
+                        }
+
+                        $refundQueryBody = json_decode($queryResp['body'], true);
+                        if (isset($body['code']) && $queryResp['code'] != 0) {
+                            throw new \Exception($queryResp['message']);
+                        }
+
+                        if ($refundQueryBody['data']['is_success']) {
+                            $data = [
+                                'out_trade_no' => $body['data']['charge_merchant_trade_id'],
+                                'trade_no' => $body['charge_id'],
+                                'buyer_user' => '',
+                                'refund_price' => $refundQueryBody['data']['amount'],
+                                'return_params' => [],
+                            ];
+
+                            return DataReturn('退款成功', 0, $data);
+                        }
+
+                        sleep(2);
+                    }
+                }
+            }
+
+            return DataReturn('请求退求失败, '. $resp['data']['failure_msg'], -1);
         }
 
         public function SuccessReturn($params = [])
@@ -1167,6 +1262,22 @@ if (!class_exists('JustapSdkJustapWechatPayScanQrcode')) {
                 'X-Justap-Nonce' => $nonceStr,
                 'X-Justap-Body-Hash' => $bodyMd5,
             ]);
+        }
+
+        function createRefund($params) {
+            $headers = ['Content-Type' => 'application/json'];
+            $this->genSign($params, $headers);
+            $uri = $this->conf->getHost().'/transaction/v1/charges/'. $params['charge_id'] .'/refunds/'. $params['refund_id'];
+            $httpBody = json_encode($params);
+            return $this->httpClient->send($uri, $headers, 'post', $httpBody, []);
+        }
+
+        function queryRefund($params) {
+            $headers = ['Content-Type' => 'application/json'];
+            $this->genSign($params, $headers);
+            $uri = $this->conf->getHost().'/transaction/v1/refunds';
+            $httpBody = json_encode($params);
+            return $this->httpClient->send($uri, $headers, 'post', $httpBody, []);
         }
 
         function rand_chars($n)
