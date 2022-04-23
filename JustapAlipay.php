@@ -665,16 +665,19 @@ if (!class_exists('JustapBaseJustapAlipay')) {
                     $creatChargeParams['extra'] = [
                         'alipay_qr' => new \stdClass()
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_APP:
                     $creatChargeParams['extra'] = [
                         'wechatpay_app' => new \stdClass()
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_H5:
                     $creatChargeParams['extra'] = [
                         'wechatpay_h5' => new \stdClass()
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_NATIVE:
                     $creatChargeParams['extra'] = [
@@ -690,6 +693,7 @@ if (!class_exists('JustapBaseJustapAlipay')) {
                             ]
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_JSAPI:
                     $creatChargeParams['extra'] = [
@@ -699,6 +703,7 @@ if (!class_exists('JustapBaseJustapAlipay')) {
                             ]
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 default:
                     return DataReturn('渠道['.$channel.']暂未支付', -1);

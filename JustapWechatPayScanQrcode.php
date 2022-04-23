@@ -667,16 +667,19 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                     $creatChargeParams['extra'] = [
                         'alipay_qr' => new \stdClass()
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_APP:
                     $creatChargeParams['extra'] = [
                         'wechatpay_app' => new \stdClass()
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_H5:
                     $creatChargeParams['extra'] = [
                         'wechatpay_h5' => new \stdClass()
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_NATIVE:
                     $creatChargeParams['extra'] = [
@@ -692,6 +695,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                             ]
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_JSAPI:
                     $creatChargeParams['extra'] = [
@@ -701,6 +705,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                             ]
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_SCAN;
                     $creatChargeParams['extra'] = [
@@ -708,6 +713,8 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                             'auth_code' => $params['params']['payment_code'],
                         ]
                     ];
+                    $resp = $this->client->createCharge($creatChargeParams);
+                    break;
                 default:
                     return DataReturn('渠道['.$channel.']暂未支付', -1);
             }
@@ -829,6 +836,8 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             }
 
             $notifyData = $data['data'];
+
+            dump($notifyData);
             // TradeType_CHARGE_PAID 支付通知
             if ($notifyData['trade_type'] == 2) {
                 if ($notifyData['is_paid']) {
@@ -840,6 +849,8 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             if ($notifyData['trade_type'] == 3) {
 
             }
+
+            return DataReturn('未知的状态', -1);
         }
 
         public function Refund($params = []) {
@@ -868,7 +879,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
         private function ReturnPaidData($data)
         {
             // 返回数据固定基础参数
-            $data['trade_no']       = $data['charge_no'];        // 支付平台 - 订单号
+            $data['trade_no']       = $data['charge_id'];        // 支付平台 - 订单号
             $data['buyer_user']     = "";       // 支付平台 - 用户
             $data['out_trade_no']   = $data['merchant_trade_id'];    // 本系统发起支付的 - 订单号
             $data['subject']        = ''; // 本系统发起支付的 - 商品名称
@@ -1191,6 +1202,10 @@ class JustapWechatPayScanQrcode extends JustapBaseJustapWechatPayScanQrcode {
             return DataReturn('参数不能为空', -1);
         }
 
+        if (!isset($params['params']['payment_code']) && $_GET['payment_code']) {
+            $params['params']['payment_code'] = $_GET['payment_code'];
+        }
+
         if(empty($this->config)) {
             return DataReturn('支付缺少配置', -1);
         }
@@ -1206,13 +1221,13 @@ class JustapWechatPayScanQrcode extends JustapBaseJustapWechatPayScanQrcode {
         if ($resp['data']['failure_code'] == 0) {
             $data = $resp['data'];
             $subject = empty($data['subject']) ? '' : $data['subject'];
-            $data['trade_no']       = $params['order_no'];          // 支付平台 - 订单号
+            $data['trade_no']       = $data['charge_id'];          // 支付平台 - 订单号
             $data['buyer_user']     = "";                           // 支付平台 - 用户
-            $data['out_trade_no']   = $data['charge_no'];           // 本系统发起支付的 - 订单号
+            $data['out_trade_no']   = $data['merchant_trade_id'];   // 本系统发起支付的 - 订单号
             $data['subject']        = $subject;                     // 本系统发起支付的 - 商品名称
             $data['pay_price']      = $data['amount'];              // 本系统发起支付的 - 总价
 
-            return DataReturn('支付完成，请进入订单页面查看结果', $this->ReturnData($resp['data']));
+            return DataReturn('支付完成，请进入订单页面查看结果', $data);
         }
 
         return DataReturn('下单失败, '. $resp['data']['failure_msg'], -1);

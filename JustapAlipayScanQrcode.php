@@ -1190,12 +1190,12 @@ class JustapAlipayScanQrcode extends JustapBaseJustapAlipayScanQrcode {
 
     public function Pay($params = []): array
     {
-        if ($_GET['payment_code']) {
-            $params['params']['payment_code'] = $_GET['payment_code'];
-        }
-
         if(empty($params)) {
             return DataReturn('参数不能为空', -1);
+        }
+
+        if (!isset($params['params']['payment_code']) && $_GET['payment_code']) {
+            $params['params']['payment_code'] = $_GET['payment_code'];
         }
 
         if(empty($this->config)) {
@@ -1210,16 +1210,17 @@ class JustapAlipayScanQrcode extends JustapBaseJustapAlipayScanQrcode {
 
         $channel = self::CHANNEL_ALIPAY_SCAN;
         $resp = $this->doPay($channel, $params);
+
         if ($resp['data']['failure_code'] == 0) {
             $data = $resp['data'];
             $subject = empty($data['subject']) ? '' : $data['subject'];
-            $data['trade_no']       = $params['order_no'];          // 支付平台 - 订单号
+            $data['trade_no']       = $data['charge_id'];          // 支付平台 - 订单号
             $data['buyer_user']     = "";                           // 支付平台 - 用户
-            $data['out_trade_no']   = $data['charge_no'];           // 本系统发起支付的 - 订单号
+            $data['out_trade_no']   = $data['merchant_trade_id'];   // 本系统发起支付的 - 订单号
             $data['subject']        = $subject;                     // 本系统发起支付的 - 商品名称
             $data['pay_price']      = $data['amount'];              // 本系统发起支付的 - 总价
 
-            return DataReturn('支付完成，请进入订单页面查看结果', $this->ReturnData($resp['data']));
+            return DataReturn('支付完成，请进入订单页面查看结果', $data);
         }
 
         return DataReturn('下单失败, '. $resp['data']['failure_msg'], -1);
