@@ -848,11 +848,6 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                 }
             }
 
-            // TradeType_CHARGE_REFUND  退款通知
-            if ($notifyData['trade_type'] == 3) {
-
-            }
-
             return DataReturn('未知的状态', -1);
         }
 
@@ -909,7 +904,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             }
 
             if (strtolower($body['data']['status']) == 'refunding') {
-                if ($body['data']['is_success'] == 0) {
+                if (!$body['data']['is_success']) {
                     // 请求退款成功，
                     // 需要查询退款结果 3 次
                     $success = false;
@@ -917,22 +912,23 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                         $queryResp = $this->client->queryRefund([
                             'charge_id' => $body['charge_id'],
                             'refund_id' => $body['refund_id'],
+                            'app_id' => $this->config['justap_app_id']
                         ]);
 
                         if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
-                            return DataReturn('支付平台下单失败', -1);
+                            return DataReturn('请求创退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
 
                         if (strpos($queryResp['headers'][0], '200') < 0) {
-                            return DataReturn('支付接口下单失败', -1);
+                            return DataReturn('请求创退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
 
                         $refundQueryBody = json_decode($queryResp['body'], true);
                         if (isset($body['code']) && $queryResp['code'] != 0) {
-                            throw new \Exception($queryResp['message']);
+                            return DataReturn('请求创退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
 
-                        if ($refundQueryBody['data']['is_success']) {
+                        if ($refundQueryBody['data']['is_success'] && strtolower($body['data']['status']) == 'refunded') {
                             $data = [
                                 'out_trade_no' => $body['data']['charge_merchant_trade_id'],
                                 'trade_no' => $body['charge_id'],
