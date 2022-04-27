@@ -740,7 +740,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             // 基础信息
             $base = [
                 'name'          => '开源聚合支付',  // 插件名称
-                'version'       => 'v1.3.0',  // 插件版本
+                'version'       => 'v1.4.0',  // 插件版本
                 'apply_version' => '不限',  // 适用系统版本描述
                 'apply_terminal' => ['pc'], // 适用终端 默认全部 ['pc', 'h5', 'ios', 'android', 'alipay', 'weixin', 'baidu', 'toutiao']
                 'desc'          => '<h1>开源聚合(TM)支付</h1>
@@ -879,9 +879,10 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             // 退款原因
             $refund_reason = empty($params['refund_reason']) ? $params['order_no'].'订单退款'.$params['refund_price'].'元' : $params['refund_reason'];
 
+            $chargeId = $params['trade_no'];
             $this->initSdk();
             $createRefundParams = [
-                'charge_id' => $params['trade_no'],
+                'charge_id' => $chargeId,
                 'app_id' => $this->config['justap_app_id'],
                 'description' => $refund_reason,
                 'merchant_refund_id' => $params['order_no'],
@@ -906,38 +907,39 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             if (strtolower($body['data']['status']) == 'refunding') {
                 if (!$body['data']['is_success']) {
                     // 请求退款成功，
-                    // 需要查询退款结果 3 次
+                    // 需要查询退款结果 4 次
                     $success = false;
-                    for ($i = 0; $i < 3; $i++) {
+                    for ($i = 0; $i <= 3; $i++) {
                         $queryResp = $this->client->queryRefund([
-                            'charge_id' => $body['charge_id'],
-                            'refund_id' => $body['refund_id'],
+                            'charge_id' => $chargeId,
+                            'refund_id' => $body['data']['refund_id'],
                             'app_id' => $this->config['justap_app_id']
                         ]);
 
+                        dump($queryResp);
                         if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
-                            return DataReturn('请求创退款成功但查询结果失败，建议前往支付平台确认', -1);
+                            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
 
                         if (strpos($queryResp['headers'][0], '200') < 0) {
-                            return DataReturn('请求创退款成功但查询结果失败，建议前往支付平台确认', -1);
+                            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
 
                         $refundQueryBody = json_decode($queryResp['body'], true);
-                        if (isset($body['code']) && $queryResp['code'] != 0) {
-                            return DataReturn('请求创退款成功但查询结果失败，建议前往支付平台确认', -1);
+                        dump($refundQueryBody);
+
+                        if (isset($refundQueryBody['code']) && $refundQueryBody['code'] != 0) {
+                            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
 
-                        if ($refundQueryBody['data']['is_success'] && strtolower($body['data']['status']) == 'refunded') {
-                            $data = [
-                                'out_trade_no' => $body['data']['charge_merchant_trade_id'],
-                                'trade_no' => $body['charge_id'],
+                        if ($refundQueryBody['data']['is_success'] && strtolower($refundQueryBody['data']['status']) == 'refunded') {
+                            return DataReturn('退款成功', 0, [
+                                'out_trade_no' => $refundQueryBody['data']['charge_merchant_trade_id'],
+                                'trade_no' => $chargeId,
                                 'buyer_user' => '',
                                 'refund_price' => $refundQueryBody['data']['amount'],
                                 'return_params' => [],
-                            ];
-
-                            return DataReturn('退款成功', 0, $data);
+                            ]);
                         }
 
                         sleep(2);
@@ -945,7 +947,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                 }
             }
 
-            return DataReturn('请求退求失败, '. $resp['data']['failure_msg'], -1);
+            return DataReturn('请求退求失败，请进入支付平台查询', -1);
         }
 
         public function SuccessReturn($params = [])
@@ -1234,12 +1236,18 @@ if (!class_exists('JustapSdkJustapWechatPayScanQrcode')) {
             return $this->httpClient->send($uri, $headers, 'post', $httpBody, []);
         }
 
-        public function genSign($params, &$headers = []) {
-            $httpBody = json_encode($params);
+        public function genSign($params, &$headers = [], $method = "post") {
+            if ($method == "get") {
+                $httpBody = "";
+            } else {
+                $httpBody = json_encode($params);
+            }
+
             $requestTime = time();
             $nonceStr = $this->rand_chars(20);
             $bodyMd5 = md5($httpBody . $requestTime . $nonceStr);
             $dataToBeSign = $bodyMd5 . $nonceStr;
+
             try {
                 $signResult = openssl_sign($dataToBeSign, $requestSignature, $this->conf->getPrivateKey(), 'sha256');
             } catch (\Throwable $e) {
@@ -1263,17 +1271,76 @@ if (!class_exists('JustapSdkJustapWechatPayScanQrcode')) {
         function createRefund($params) {
             $headers = ['Content-Type' => 'application/json'];
             $this->genSign($params, $headers);
-            $uri = $this->conf->getHost().'/transaction/v1/charges/'. $params['charge_id'] .'/refunds/'. $params['refund_id'];
+            $uri = $this->conf->getHost().'/transaction/v1/refunds';
+
             $httpBody = json_encode($params);
             return $this->httpClient->send($uri, $headers, 'post', $httpBody, []);
         }
 
         function queryRefund($params) {
-            $headers = ['Content-Type' => 'application/json'];
-            $this->genSign($params, $headers);
-            $uri = $this->conf->getHost().'/transaction/v1/refunds';
-            $httpBody = json_encode($params);
-            return $this->httpClient->send($uri, $headers, 'post', $httpBody, []);
+            $headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json'];
+            $this->genSign($params, $headers, 'get');
+            $uri = $this->conf->getHost().'/transaction/v1/charges/'. $params['charge_id'] .'/refunds/'. $params['refund_id'].'?app_id='.$params['app_id'];
+
+            $headerOptions = [];
+            foreach ($headers as $key => $values) {
+                if (is_array($values)) {
+                    $headerOptions[] = $key . ': ' . implode(', ', $values);
+                } else {
+                    $headerOptions[] = $key . ': ' . $values;
+                }
+            }
+
+            $ch = curl_init();
+            curl_setopt_array($ch, array(
+                CURLOPT_URL => $uri,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HEADER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_HTTPHEADER => $headerOptions,
+            ));
+
+            $body = curl_exec($ch);
+            if ($body === false) {
+                $errorCode = curl_errno($ch);
+                $error = curl_error($ch);
+                curl_close($ch);
+
+                $message = "cURL Error ({$errorCode}) {$error}";
+                $errorNumbers = [
+                    CURLE_FAILED_INIT,
+                    CURLE_URL_MALFORMAT,
+                    CURLE_URL_MALFORMAT_USER,
+                ];
+
+                if (in_array($errorCode, $errorNumbers, true)) {
+                    throw new \Exception($message);
+                }
+                throw new \Exception($message);
+            }
+
+            $response = $this->createResponse($ch, $body);
+            curl_close($ch);
+
+            return $response;
+        }
+
+        protected function createResponse($handle, $responseData): array
+        {
+            /** @psalm-suppress PossiblyInvalidArgument */
+            $headerSize = curl_getinfo($handle, CURLINFO_HEADER_SIZE);
+            $headers = trim(substr($responseData, 0, $headerSize));
+            $body = substr($responseData, $headerSize);
+
+            return [
+                'headers' => explode("\r\n", $headers),
+                'body' => $body
+            ];
         }
 
         function rand_chars($n)
@@ -1305,6 +1372,42 @@ class JustapWechatPayScanQrcode extends JustapBaseJustapWechatPayScanQrcode {
 
     public function Pay($params = []): array
     {
+//        $this->initSdk();
+//        $queryResp = $this->client->queryRefund([
+//            'charge_id' => 'chg_1o6lvd48jzg820eyr95w',
+//            'refund_id' => 'rfd_y7dv89kr2yod3lwzq6og',
+//            'app_id' => $this->config['justap_app_id']
+//        ]);
+//
+//        dump($queryResp);
+//        if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
+//            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
+//        }
+//
+//        if (strpos($queryResp['headers'][0], '200') < 0) {
+//            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
+//        }
+//
+//        $refundQueryBody = json_decode($queryResp['body'], true);
+//        if (isset($body['code']) && $queryResp['code'] != 0) {
+//            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
+//        }
+//
+//        dump($refundQueryBody);
+//        if ($refundQueryBody['data']['is_success'] && strtolower($refundQueryBody['data']['status']) == 'refunded') {
+//            $data = [
+//                'out_trade_no' => $refundQueryBody['data']['charge_merchant_trade_id'],
+//                'trade_no' => "chg_1o6lvd48jzg820eyr95w",
+//                'buyer_user' => '',
+//                'refund_price' => $refundQueryBody['data']['amount'],
+//                'return_params' => [],
+//            ];
+//
+//            return DataReturn('退款成功', 0, $data);
+//        }
+//
+//        dd(33);
+
         if(empty($params)) {
             return DataReturn('参数不能为空', -1);
         }
