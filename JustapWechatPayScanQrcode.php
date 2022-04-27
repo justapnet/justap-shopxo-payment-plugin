@@ -908,7 +908,6 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                 if (!$body['data']['is_success']) {
                     // 请求退款成功，
                     // 需要查询退款结果 4 次
-                    $success = false;
                     for ($i = 0; $i <= 3; $i++) {
                         $queryResp = $this->client->queryRefund([
                             'charge_id' => $chargeId,
@@ -916,7 +915,6 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                             'app_id' => $this->config['justap_app_id']
                         ]);
 
-                        dump($queryResp);
                         if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
                             return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
                         }
@@ -926,7 +924,6 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                         }
 
                         $refundQueryBody = json_decode($queryResp['body'], true);
-                        dump($refundQueryBody);
 
                         if (isset($refundQueryBody['code']) && $refundQueryBody['code'] != 0) {
                             return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
@@ -945,6 +942,8 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                         sleep(2);
                     }
                 }
+
+                return DataReturn('退款请求正在处理中，结果请稍后进入支付平台查询', -1);
             }
 
             return DataReturn('请求退求失败，请进入支付平台查询', -1);
