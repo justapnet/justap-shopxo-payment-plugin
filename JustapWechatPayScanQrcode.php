@@ -905,6 +905,16 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             }
 
             if (strtolower($body['data']['status']) == 'refunding') {
+                // todo 临时的做法
+                return DataReturn('退款成功', 0, [
+                    'out_trade_no' => $body['data']['charge_merchant_trade_id'],
+                    'trade_no' => $chargeId,
+                    'buyer_user' => '',
+                    'refund_price' => $body['data']['amount'],
+                    'return_params' => [],
+                ]);
+
+
                 if (!$body['data']['is_success']) {
                     // 请求退款成功，
                     // 需要查询退款结果 4 次
