@@ -421,7 +421,9 @@ if  (!class_exists('CurlHttpClientJustapWechatPayScanQrcode')) {
             $ch = curl_init();
             $options = $this->buildOptions($uri, $headerOptions, $method, $body, $options);
             curl_setopt_array($ch, $options);
-
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            
             /** @var string|false $body */
             $body = $this->exec($ch);
             if ($body === false) {
@@ -445,6 +447,57 @@ if  (!class_exists('CurlHttpClientJustapWechatPayScanQrcode')) {
             curl_close($ch);
 
             return $responses;
+        }
+
+        public function get($uri, $headers) {
+            $headerOptions = [];
+            foreach ($headers as $key => $values) {
+                if (is_array($values)) {
+                    $headerOptions[] = $key . ': ' . implode(', ', $values);
+                } else {
+                    $headerOptions[] = $key . ': ' . $values;
+                }
+            }
+
+            $ch = curl_init();
+            curl_setopt_array($ch, array(
+                CURLOPT_URL => $uri,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HEADER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_HTTPHEADER => $headerOptions,
+            ));
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+
+            $body = curl_exec($ch);
+            if ($body === false) {
+                $errorCode = curl_errno($ch);
+                $error = curl_error($ch);
+                curl_close($ch);
+
+                $message = "cURL Error ({$errorCode}) {$error}";
+                $errorNumbers = [
+                    CURLE_FAILED_INIT,
+                    CURLE_URL_MALFORMAT,
+                    CURLE_URL_MALFORMAT_USER,
+                ];
+
+                if (in_array($errorCode, $errorNumbers, true)) {
+                    throw new \Exception($message);
+                }
+                throw new \Exception($message);
+            }
+
+            $response = $this->createResponse($ch, $body);
+            curl_close($ch);
+
+            return $response;
         }
 
         public function buildOptions($uri, $headerOptions, $method, $body, array $options): array
@@ -493,41 +546,7 @@ if  (!class_exists('CurlHttpClientJustapWechatPayScanQrcode')) {
                 unset($out[CURLOPT_POSTFIELDS]);
             }
 
-//        if (empty($options['ssl_cafile'])) {
-//            $options['ssl_cafile'] = CaBundleJustapWechatPayScanQrcode::getBundledCaBundleJustapWechatPayScanQrcodePath();
-//        }
-
-            if (!empty($options['ssl_verify_host'])) {
-                // Value of 1 or true is deprecated. Only 2 or 0 should be used now.
-                $options['ssl_verify_host'] = 2;
-            }
-            $optionMap = [
-                'timeout' => CURLOPT_TIMEOUT,
-                'ssl_verify_peer' => CURLOPT_SSL_VERIFYPEER,
-                'ssl_verify_host' => CURLOPT_SSL_VERIFYHOST,
-                'ssl_cafile' => CURLOPT_CAINFO,
-                'ssl_local_cert' => CURLOPT_SSLCERT,
-                'ssl_passphrase' => CURLOPT_SSLCERTPASSWD,
-            ];
-            foreach ($optionMap as $option => $curlOpt) {
-                if (isset($options[$option])) {
-                    $out[$curlOpt] = $options[$option];
-                }
-            }
-            if (isset($options['proxy']['proxy'])) {
-                $out[CURLOPT_PROXY] = $options['proxy']['proxy'];
-            }
-            if (isset($options['proxy']['username'])) {
-                $password = !empty($options['proxy']['password']) ? $options['proxy']['password'] : '';
-                $out[CURLOPT_PROXYUSERPWD] = $options['proxy']['username'] . ':' . $password;
-            }
-            if (isset($options['curl']) && is_array($options['curl'])) {
-                // Can't use array_merge() because keys will be re-ordered.
-                foreach ($options['curl'] as $key => $value) {
-                    $out[$key] = $value;
-                }
-            }
-
+            $out[CURLOPT_SSL_VERIFYHOST] = false;
             return $out;
         }
 
@@ -840,7 +859,7 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
             }
 
             $notifyData = $data['data'];
-            dump($notifyData);
+
             // TradeType_CHARGE_PAID 支付通知
             if ($notifyData['trade_type'] == 2) {
                 if ($notifyData['is_paid']) {
@@ -904,9 +923,19 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                 throw new \Exception($body['message']);
             }
 
+            if ($body['data']['refund_id']) {
+                return DataReturn('退款成功', 0, [
+                    'out_trade_no' => $body['data']['charge_merchant_trade_id'],
+                    'trade_no' => $chargeId,
+                    'buyer_user' => '',
+                    'refund_price' => $body['data']['amount'],
+                    'return_params' => [],
+                ]);
+            }
+
             if (strtolower($body['data']['status']) == 'refunding') {
                 // todo 临时的做法
-                return DataReturn('退款成功', 0, [
+                return DataReturn('退款成功，可前往支付平台进一步确认结果', 0, [
                     'out_trade_no' => $body['data']['charge_merchant_trade_id'],
                     'trade_no' => $chargeId,
                     'buyer_user' => '',
@@ -1290,53 +1319,55 @@ if (!class_exists('JustapSdkJustapWechatPayScanQrcode')) {
             $headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json'];
             $this->genSign($params, $headers, 'get');
             $uri = $this->conf->getHost().'/transaction/v1/charges/'. $params['charge_id'] .'/refunds/'. $params['refund_id'].'?app_id='.$params['app_id'];
+            
+            return $this->httpClient->get($uri, $headers);
 
-            $headerOptions = [];
-            foreach ($headers as $key => $values) {
-                if (is_array($values)) {
-                    $headerOptions[] = $key . ': ' . implode(', ', $values);
-                } else {
-                    $headerOptions[] = $key . ': ' . $values;
-                }
-            }
+            // $headerOptions = [];
+            // foreach ($headers as $key => $values) {
+            //     if (is_array($values)) {
+            //         $headerOptions[] = $key . ': ' . implode(', ', $values);
+            //     } else {
+            //         $headerOptions[] = $key . ': ' . $values;
+            //     }
+            // }
 
-            $ch = curl_init();
-            curl_setopt_array($ch, array(
-                CURLOPT_URL => $uri,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HEADER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => 'GET',
-                CURLOPT_HTTPHEADER => $headerOptions,
-            ));
+            // $ch = curl_init();
+            // curl_setopt_array($ch, array(
+            //     CURLOPT_URL => $uri,
+            //     CURLOPT_RETURNTRANSFER => true,
+            //     CURLOPT_HEADER => true,
+            //     CURLOPT_ENCODING => '',
+            //     CURLOPT_MAXREDIRS => 10,
+            //     CURLOPT_TIMEOUT => 0,
+            //     CURLOPT_FOLLOWLOCATION => true,
+            //     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            //     CURLOPT_CUSTOMREQUEST => 'GET',
+            //     CURLOPT_HTTPHEADER => $headerOptions,
+            // ));
 
-            $body = curl_exec($ch);
-            if ($body === false) {
-                $errorCode = curl_errno($ch);
-                $error = curl_error($ch);
-                curl_close($ch);
+            // $body = curl_exec($ch);
+            // if ($body === false) {
+            //     $errorCode = curl_errno($ch);
+            //     $error = curl_error($ch);
+            //     curl_close($ch);
 
-                $message = "cURL Error ({$errorCode}) {$error}";
-                $errorNumbers = [
-                    CURLE_FAILED_INIT,
-                    CURLE_URL_MALFORMAT,
-                    CURLE_URL_MALFORMAT_USER,
-                ];
+            //     $message = "cURL Error ({$errorCode}) {$error}";
+            //     $errorNumbers = [
+            //         CURLE_FAILED_INIT,
+            //         CURLE_URL_MALFORMAT,
+            //         CURLE_URL_MALFORMAT_USER,
+            //     ];
 
-                if (in_array($errorCode, $errorNumbers, true)) {
-                    throw new \Exception($message);
-                }
-                throw new \Exception($message);
-            }
+            //     if (in_array($errorCode, $errorNumbers, true)) {
+            //         throw new \Exception($message);
+            //     }
+            //     throw new \Exception($message);
+            // }
 
-            $response = $this->createResponse($ch, $body);
-            curl_close($ch);
+            // $response = $this->createResponse($ch, $body);
+            // curl_close($ch);
 
-            return $response;
+            // return $response;
         }
 
         protected function createResponse($handle, $responseData): array
@@ -1381,42 +1412,6 @@ class JustapWechatPayScanQrcode extends JustapBaseJustapWechatPayScanQrcode {
 
     public function Pay($params = []): array
     {
-//        $this->initSdk();
-//        $queryResp = $this->client->queryRefund([
-//            'charge_id' => 'chg_1o6lvd48jzg820eyr95w',
-//            'refund_id' => 'rfd_y7dv89kr2yod3lwzq6og',
-//            'app_id' => $this->config['justap_app_id']
-//        ]);
-//
-//        dump($queryResp);
-//        if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
-//            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
-//        }
-//
-//        if (strpos($queryResp['headers'][0], '200') < 0) {
-//            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
-//        }
-//
-//        $refundQueryBody = json_decode($queryResp['body'], true);
-//        if (isset($body['code']) && $queryResp['code'] != 0) {
-//            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
-//        }
-//
-//        dump($refundQueryBody);
-//        if ($refundQueryBody['data']['is_success'] && strtolower($refundQueryBody['data']['status']) == 'refunded') {
-//            $data = [
-//                'out_trade_no' => $refundQueryBody['data']['charge_merchant_trade_id'],
-//                'trade_no' => "chg_1o6lvd48jzg820eyr95w",
-//                'buyer_user' => '',
-//                'refund_price' => $refundQueryBody['data']['amount'],
-//                'return_params' => [],
-//            ];
-//
-//            return DataReturn('退款成功', 0, $data);
-//        }
-//
-//        dd(33);
-
         if(empty($params)) {
             return DataReturn('参数不能为空', -1);
         }

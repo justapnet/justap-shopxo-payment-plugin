@@ -422,6 +422,8 @@ if  (!class_exists('CurlHttpClientJustapWechatPay')) {
             $ch = curl_init();
             $options = $this->buildOptions($uri, $headerOptions, $method, $body, $options);
             curl_setopt_array($ch, $options);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 
             /** @var string|false $body */
             $body = $this->exec($ch);
@@ -446,6 +448,57 @@ if  (!class_exists('CurlHttpClientJustapWechatPay')) {
             curl_close($ch);
 
             return $responses;
+        }
+
+        public function get($uri, $headers) {
+            $headerOptions = [];
+            foreach ($headers as $key => $values) {
+                if (is_array($values)) {
+                    $headerOptions[] = $key . ': ' . implode(', ', $values);
+                } else {
+                    $headerOptions[] = $key . ': ' . $values;
+                }
+            }
+
+            $ch = curl_init();
+            curl_setopt_array($ch, array(
+                CURLOPT_URL => $uri,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HEADER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_HTTPHEADER => $headerOptions,
+            ));
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+
+            $body = curl_exec($ch);
+            if ($body === false) {
+                $errorCode = curl_errno($ch);
+                $error = curl_error($ch);
+                curl_close($ch);
+
+                $message = "cURL Error ({$errorCode}) {$error}";
+                $errorNumbers = [
+                    CURLE_FAILED_INIT,
+                    CURLE_URL_MALFORMAT,
+                    CURLE_URL_MALFORMAT_USER,
+                ];
+
+                if (in_array($errorCode, $errorNumbers, true)) {
+                    throw new \Exception($message);
+                }
+                throw new \Exception($message);
+            }
+
+            $response = $this->createResponse($ch, $body);
+            curl_close($ch);
+
+            return $response;
         }
 
         public function buildOptions($uri, $headerOptions, $method, $body, array $options): array
@@ -494,41 +547,7 @@ if  (!class_exists('CurlHttpClientJustapWechatPay')) {
                 unset($out[CURLOPT_POSTFIELDS]);
             }
 
-//        if (empty($options['ssl_cafile'])) {
-//            $options['ssl_cafile'] = CaBundleJustapWechatPay::getBundledCaBundleJustapWechatPayPath();
-//        }
-
-            if (!empty($options['ssl_verify_host'])) {
-                // Value of 1 or true is deprecated. Only 2 or 0 should be used now.
-                $options['ssl_verify_host'] = 2;
-            }
-            $optionMap = [
-                'timeout' => CURLOPT_TIMEOUT,
-                'ssl_verify_peer' => CURLOPT_SSL_VERIFYPEER,
-                'ssl_verify_host' => CURLOPT_SSL_VERIFYHOST,
-                'ssl_cafile' => CURLOPT_CAINFO,
-                'ssl_local_cert' => CURLOPT_SSLCERT,
-                'ssl_passphrase' => CURLOPT_SSLCERTPASSWD,
-            ];
-            foreach ($optionMap as $option => $curlOpt) {
-                if (isset($options[$option])) {
-                    $out[$curlOpt] = $options[$option];
-                }
-            }
-            if (isset($options['proxy']['proxy'])) {
-                $out[CURLOPT_PROXY] = $options['proxy']['proxy'];
-            }
-            if (isset($options['proxy']['username'])) {
-                $password = !empty($options['proxy']['password']) ? $options['proxy']['password'] : '';
-                $out[CURLOPT_PROXYUSERPWD] = $options['proxy']['username'] . ':' . $password;
-            }
-            if (isset($options['curl']) && is_array($options['curl'])) {
-                // Can't use array_merge() because keys will be re-ordered.
-                foreach ($options['curl'] as $key => $value) {
-                    $out[$key] = $value;
-                }
-            }
-
+            $out[CURLOPT_SSL_VERIFYHOST] = false;
             return $out;
         }
 
@@ -825,6 +844,7 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
             }
 
             $notifyData = $data['data'];
+
             // TradeType_CHARGE_PAID 支付通知
             if ($notifyData['trade_type'] == 2) {
                 if ($notifyData['is_paid']) {
@@ -832,14 +852,127 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
                 }
             }
 
-            // TradeType_CHARGE_REFUND  退款通知
-            if ($notifyData['trade_type'] == 3) {
-
-            }
+            return DataReturn('未知的状态', -1);
         }
 
         public function Refund($params = []) {
+            // 参数
+            $p = [
+                [
+                    'checked_type'      => 'empty',
+                    'key_name'          => 'order_no',
+                    'error_msg'         => '订单号不能为空',
+                ],
+                [
+                    'checked_type'      => 'empty',
+                    'key_name'          => 'trade_no',
+                    'error_msg'         => '交易平台订单号不能为空',
+                ],
+                [
+                    'checked_type'      => 'empty',
+                    'key_name'          => 'refund_price',
+                    'error_msg'         => '退款金额不能为空',
+                ],
+            ];
 
+            $ret = ParamsChecked($params, $p);
+            if($ret !== true)
+            {
+                return DataReturn($ret, -1);
+            }
+
+            // 退款原因
+            $refund_reason = empty($params['refund_reason']) ? $params['order_no'].'订单退款'.$params['refund_price'].'元' : $params['refund_reason'];
+
+            $chargeId = $params['trade_no'];
+            $this->initSdk();
+            $createRefundParams = [
+                'charge_id' => $chargeId,
+                'app_id' => $this->config['justap_app_id'],
+                'description' => $refund_reason,
+                'merchant_refund_id' => $params['order_no'],
+                'amount' => $params['refund_price']
+            ];
+
+            
+            $resp = $this->client->createRefund($createRefundParams);
+
+            if (empty($resp) || !isset($resp['headers']) || count($resp['headers']) < 0) {
+                return DataReturn('支付平台下单失败', -1);
+            }
+
+            if (strpos($resp['headers'][0], '200') < 0) {
+                return DataReturn('支付接口下单失败', -1);
+            }
+
+            $body = json_decode($resp['body'], true);
+            if (isset($body['code']) && $body['code'] != 0) {
+                throw new \Exception($body['message']);
+            }
+
+            if ($body['data']['refund_id']) {
+                return DataReturn('退款成功', 0, [
+                    'out_trade_no' => $body['data']['charge_merchant_trade_id'],
+                    'trade_no' => $chargeId,
+                    'buyer_user' => '',
+                    'refund_price' => $body['data']['amount'],
+                    'return_params' => [],
+                ]);
+            }
+
+            if (strtolower($body['data']['refund_id']) == 'refunding') {
+                // todo 临时的做法
+                return DataReturn('退款成功，可前往支付平台进一步确认结果', 0, [
+                    'out_trade_no' => $body['data']['charge_merchant_trade_id'],
+                    'trade_no' => $chargeId,
+                    'buyer_user' => '',
+                    'refund_price' => $body['data']['amount'],
+                    'return_params' => [],
+                ]);
+
+
+                if (!$body['data']['is_success']) {
+                    // 请求退款成功，
+                    // 需要查询退款结果 4 次
+                    for ($i = 0; $i <= 3; $i++) {
+                        $queryResp = $this->client->queryRefund([
+                            'charge_id' => $chargeId,
+                            'refund_id' => $body['data']['refund_id'],
+                            'app_id' => $this->config['justap_app_id']
+                        ]);
+
+                        if (empty($queryResp) || !isset($queryResp['headers']) || count($queryResp['headers']) < 0) {
+                            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
+                        }
+
+                        if (strpos($queryResp['headers'][0], '200') < 0) {
+                            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
+                        }
+
+                        $refundQueryBody = json_decode($queryResp['body'], true);
+
+                        if (isset($refundQueryBody['code']) && $refundQueryBody['code'] != 0) {
+                            return DataReturn('请求退款成功但查询结果失败，建议前往支付平台确认', -1);
+                        }
+
+                        if ($refundQueryBody['data']['is_success'] && strtolower($refundQueryBody['data']['status']) == 'refunded') {
+                            return DataReturn('退款成功', 0, [
+                                'out_trade_no' => $refundQueryBody['data']['charge_merchant_trade_id'],
+                                'trade_no' => $chargeId,
+                                'buyer_user' => '',
+                                'refund_price' => $refundQueryBody['data']['amount'],
+                                'return_params' => [],
+                            ]);
+                        }
+
+                        sleep(2);
+                    }
+                }
+
+                return DataReturn('退款请求正在处理中，结果请稍后进入支付平台查询', -1);
+            }
+
+            return DataReturn('请求退求失败，请进入支付平台查询', -1);
         }
 
         public function SuccessReturn($params = [])
@@ -864,7 +997,7 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
         private function ReturnPaidData($data)
         {
             // 返回数据固定基础参数
-            $data['trade_no']       = $data['charge_no'];        // 支付平台 - 订单号
+            $data['trade_no']       = $data['charge_id'];        // 支付平台 - 订单号
             $data['buyer_user']     = "";       // 支付平台 - 用户
             $data['out_trade_no']   = $data['merchant_trade_id'];    // 本系统发起支付的 - 订单号
             $data['subject']        = ''; // 本系统发起支付的 - 商品名称
@@ -1154,6 +1287,24 @@ if (!class_exists('JustapSdkJustapWechatPay')) {
             ]);
         }
 
+        function createRefund($params) {
+    
+            $headers = ['Content-Type' => 'application/json'];
+            $this->genSign($params, $headers);
+            $uri = $this->conf->getHost().'/transaction/v1/refunds';
+
+            $httpBody = json_encode($params);
+            return $this->httpClient->send($uri, $headers, 'post', $httpBody, []);
+        }
+
+        function queryRefund($params) {
+            $headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json'];
+            $this->genSign($params, $headers, 'get');
+            $uri = $this->conf->getHost().'/transaction/v1/charges/'. $params['charge_id'] .'/refunds/'. $params['refund_id'].'?app_id='.$params['app_id'];
+            
+            return $this->httpClient->get($uri, $headers);
+        }
+
         function rand_chars($n)
         {
             $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -1244,6 +1395,7 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
 
         $params['openid'] = $openId;
         $resp = $this->doPay($channel, $params);
+
         if ($resp['data']['failure_code'] !== "0") {
             return DataReturn($resp['data']['failure_msg'], -1);
         }
