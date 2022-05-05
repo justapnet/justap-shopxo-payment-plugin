@@ -693,7 +693,14 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
                     break;
                 case self::CHANNEL_WECHATPAY_H5:
                     $creatChargeParams['extra'] = [
-                        'wechatpay_h5' => new \stdClass()
+                        'wechatpay_h5' => [
+                           'scene_info' => [
+                               'payer_client_ip' => GetClientIP(),
+                               'h5_info' => [
+                                   'type' => 'Wap',
+                               ]
+                           ]
+                        ]
                     ];
                     $resp = $this->client->createCharge($creatChargeParams);
                     break;
@@ -1365,15 +1372,17 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
             // web
             case 'pc' :
             case 'h5' :
-                if(IsMobile())
-                {
-                    // real h5
+                if(IsMobile()) {
+                    // 手机浏览器
                     if (IsWeixinEnv()) {
+                        // 在微信内打开的 h5, 走 jsapi 支付
                         $channel = self::CHANNEL_WECHATPAY_JSAPI;
                     } else {
-                        $channel = self::CHANNEL_WECHATPAY_NATIVE;
+                        // 在微信外打开的 h5，真的是 h5
+                        $channel = self::CHANNEL_WECHATPAY_H5;
                     }
                 } else {
+                    // PC 浏览器
                     $channel = self::CHANNEL_WECHATPAY_NATIVE;
                 }
 

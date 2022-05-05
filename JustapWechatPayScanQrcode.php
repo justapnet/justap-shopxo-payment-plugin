@@ -943,7 +943,6 @@ if (!class_exists('JustapBaseJustapWechatPayScanQrcode')) {
                     'return_params' => [],
                 ]);
 
-
                 if (!$body['data']['is_success']) {
                     // 请求退款成功，
                     // 需要查询退款结果 4 次
