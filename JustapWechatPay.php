@@ -694,12 +694,12 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
                 case self::CHANNEL_WECHATPAY_H5:
                     $creatChargeParams['extra'] = [
                         'wechatpay_h5' => [
-                           'scene_info' => [
-                               'payer_client_ip' => GetClientIP(),
-                               'h5_info' => [
-                                   'type' => 'Wap',
-                               ]
-                           ]
+                            'scene_info' => [
+                                'payer_client_ip' => GetClientIP(),
+                                'h5_info' => [
+                                    'type' => 'Wap',
+                                ]
+                            ]
                         ]
                     ];
                     $resp = $this->client->createCharge($creatChargeParams);
@@ -721,13 +721,26 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
                     $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 case self::CHANNEL_WECHATPAY_JSAPI:
+                    $appId = "";
+                    $ret = PluginsService::PluginsData('weixinwebauthorization');
+                    if($ret['code'] == 0)
+                    {
+                        $appId = $ret['data']['appid'];
+                    }
+
+                    if (empty($appId)) {
+                        return DataReturn('请先安装[微信网页授权]插件', -1);
+                    }
+
                     $creatChargeParams['extra'] = [
                         'wechatpay_jsapi' => [
                             'payer' => [
                                 'openid' => $params['openid'],
+                                'appid' => $appId,
                             ]
                         ]
                     ];
+
                     $resp = $this->client->createCharge($creatChargeParams);
                     break;
                 default:
@@ -751,7 +764,7 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
             // 基础信息
             $base = [
                 'name'          => '开源聚合支付',  // 插件名称
-                'version'       => 'v1.5.0',  // 插件版本
+                'version'       => 'v1.5.1',  // 插件版本
                 'apply_version' => '不限',  // 适用系统版本描述
                 'apply_terminal' => ['pc', 'h5', 'ios', 'android', 'alipay', 'weixin'], // 适用终端 默认全部 ['pc', 'h5', 'ios', 'android', 'alipay', 'weixin', 'baidu', 'toutiao']
                 'desc'          => '<h1>开源聚合(TM)支付</h1>
@@ -901,7 +914,7 @@ if (!class_exists('JustapBaseJustapWechatPay')) {
                 'amount' => $params['refund_price']
             ];
 
-            
+
             $resp = $this->client->createRefund($createRefundParams);
 
             if (empty($resp) || !isset($resp['headers']) || count($resp['headers']) < 0) {
@@ -1295,7 +1308,7 @@ if (!class_exists('JustapSdkJustapWechatPay')) {
         }
 
         function createRefund($params) {
-    
+
             $headers = ['Content-Type' => 'application/json'];
             $this->genSign($params, $headers);
             $uri = $this->conf->getHost().'/transaction/v1/refunds';
@@ -1308,7 +1321,7 @@ if (!class_exists('JustapSdkJustapWechatPay')) {
             $headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json'];
             $this->genSign($params, $headers, 'get');
             $uri = $this->conf->getHost().'/transaction/v1/charges/'. $params['charge_id'] .'/refunds/'. $params['refund_id'].'?app_id='.$params['app_id'];
-            
+
             return $this->httpClient->get($uri, $headers);
         }
 
