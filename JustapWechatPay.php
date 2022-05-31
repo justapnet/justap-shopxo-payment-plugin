@@ -3,6 +3,9 @@
 namespace payment;
 
 
+use app\service\PluginsService;
+
+
 // -----------------------------------------------------------------
 // 以下代码所有开源聚合支付插件相同
 // -----------------------------------------------------------------
@@ -1374,7 +1377,7 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
         }
 
         $channel = '';
-        $openId = '';
+        $openid = '';
         if (APPLICATION_CLIENT_TYPE == 'weixin') {
             $openid = isset($params['user']['weixin_openid']) ? $params['user']['weixin_openid'] : '';
         } else {
@@ -1415,7 +1418,7 @@ class JustapWechatPay extends JustapBaseJustapWechatPay {
                 return DataReturn('支付类型不匹配', -1);
         }
 
-        $params['openid'] = $openId;
+        $params['openid'] = $openid;
         $resp = $this->doPay($channel, $params);
 
         if ($resp['data']['failure_code'] !== "0") {
